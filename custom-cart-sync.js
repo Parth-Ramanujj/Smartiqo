@@ -229,7 +229,7 @@ function buildFullItemPayload(item, orderId, isOrderConfirmation) {
     const sizeModule = cartData.size?.item || '';
     const techType = cartData.technology?.item || '';
 
-    // Extract individual color categories into separate fields
+    // Separate Colors
     let glassColor = '', frameColor = '', buttonColor = '';
     const colorParts = [];
     if (Array.isArray(cartData.color)) {
@@ -247,13 +247,12 @@ function buildFullItemPayload(item, orderId, isOrderConfirmation) {
     }
     const colorsStr = colorParts.join(' | ');
 
-    // Extract individual accessories into comma-separated string
+    // Accessories & Icons
     const accessoriesList = [...(cartData.accessories || []), ...(cartData.accessories1 || []), ...(cartData.accessories2 || []), ...(cartData.accessories3 || [])]
         .flatMap(a => (a.options || []).map(o => o.item))
         .filter(Boolean)
         .join(', ');
 
-    // Extract icon names
     const iconNamesList = droppedArr.map(ic => ic.title || ic.name || ic.id || 'Icon').filter(Boolean).join(', ');
 
     const detailsSummary = extractProductDetails(cartData);
@@ -264,37 +263,24 @@ function buildFullItemPayload(item, orderId, isOrderConfirmation) {
     const flowPdfData = generateFlowPdfDataUrl(customName, detailsSummary, orderId, priceStr, dateStr);
 
     return {
-        // Identity & User
+        // My Cart View Columns
         orderId: orderId,
-        date: dateStr,
+        cartId: orderId,
         productId: productId,
+        productSequence: productId,
         orderName: orderName,
         customName: customName,
+        itemName: customName,
         panelName: panelName,
 
-        // Separate Panel Specifications
-        panel: panelType,
-        panelType: panelType,
-        material: materialType,
-        materialType: materialType,
-        size: sizeModule,
-        sizeModule: sizeModule,
-        technology: techType,
-        techType: techType,
+        // Media & Specs
+        imagePreview: imgPreview,
+        preview: imgPreview || detailsSummary,
+        flowPdf: flowPdfData,
+        pdf: flowPdfData,
+        pdfUrl: flowPdfData,
 
-        // Separate Colors
-        glassColor: glassColor,
-        frameColor: frameColor,
-        buttonColor: buttonColor,
-        colors: colorsStr,
-
-        // Separate Accessories & Icons
-        accessories: accessoriesList,
-        iconsCount: String(droppedCount),
-        iconNames: iconNamesList,
-        dropped: droppedArr,
-
-        // Separate Pricing & Status
+        // Quantities & Prices
         qty: String(qty),
         quantity: String(qty),
         unitPrice: unitPriceStr,
@@ -304,11 +290,27 @@ function buildFullItemPayload(item, orderId, isOrderConfirmation) {
         savings: savings > 0 ? formatPrice(savings) : '₹ 0.00',
         status: isOrderConfirmation ? 'Confirmed' : 'In Cart',
 
-        // Preview & Raw Data
-        imagePreview: imgPreview,
-        preview: imgPreview || detailsSummary,
-        flowPdf: flowPdfData,
-        pdf: flowPdfData,
+        // Steps 1 to 8 Specification Columns
+        panel: panelType,
+        panelType: panelType,
+        material: materialType,
+        materialType: materialType,
+        size: sizeModule,
+        sizeModule: sizeModule,
+        technology: techType,
+        techType: techType,
+
+        glassColor: glassColor,
+        frameColor: frameColor,
+        buttonColor: buttonColor,
+        colors: colorsStr,
+
+        accessories: accessoriesList,
+        iconsCount: String(droppedCount),
+        iconNames: iconNamesList,
+        dropped: droppedArr,
+
+        date: dateStr,
         cartData: cartData
     };
 }

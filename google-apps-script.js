@@ -7,7 +7,7 @@
  * ╚══════════════════════════════════════════════════════════════════════════════╝
  *
  * SHEET STRUCTURE (auto-created on first request):
- *  Sheet 1: "Orders"                  — Full order items (deletes row when item removed from cart)
+ *  Sheet 1: "Orders"                  — Full cart items (Cart ID, Product ID, Custom Name, Preview Image, PDF, Qty, Price, Savings, Steps 1-8)
  *  Sheet 2: "Step Configurator Logs"  — Live user journey through Steps 1 to 8 per user
  *  Sheet 3: "User Activity"           — Step-by-step action log
  *  Sheet 4: "Users"                   — Login/logout activity per user
@@ -19,32 +19,33 @@ var SHEET_NAME_STEPS       = "Step Configurator Logs";
 var SHEET_NAME_ACTIVITY    = "User Activity";
 var SHEET_NAME_USERS       = "Users";
 
-// ─── ORDERS sheet columns (Steps 1 to 8 clearly separated) ─────────────────────
+// ─── ORDERS sheet columns (My Cart View & Steps 1 to 8 in separate columns) ────
 var ORDER_HEADERS = [
-  "Date",                       // A (index 0)
-  "Time",                       // B (index 1)
-  "User Email",                 // C (index 2)
-  "User Name",                  // D (index 3)
-  "Order ID",                   // E (index 4)
-  "Product / Order Name",       // F (index 5)
-  "Step 1: Panel",              // G (index 6)
-  "Step 2: Material",           // H (index 7)
-  "Step 3: Size",               // I (index 8)
-  "Step 4: Accessories",        // J (index 9)
-  "Step 5: Icons Count",        // K (index 10)
-  "Step 5: Icon Names",         // L (index 11)
-  "Step 6: Glass Color",        // M (index 12)
-  "Step 6: Border Color",       // N (index 13)
-  "Step 6: Button Color",       // O (index 14)
-  "Step 7: Technology",         // P (index 15)
-  "Step 8: Cart Status",        // Q (index 16)
-  "Quantity",                   // R (index 17)
-  "Unit Price (₹)",             // S (index 18)
-  "Total Price (₹)",            // T (index 19)
-  "Savings (₹)",                // U (index 20)
-  "Product Sequence",           // V (index 21)
-  "Image Preview URL",          // W (index 22)
-  "Raw JSON Data"               // X (index 23)
+  "Date",                       // A (Col 1)
+  "Time",                       // B (Col 2)
+  "User Email",                 // C (Col 3)
+  "User Name",                  // D (Col 4)
+  "Cart / Order ID",            // E (Col 5)
+  "Product ID",                 // F (Col 6)
+  "Custom Product Name",        // G (Col 7)
+  "Preview Image",              // H (Col 8)  — Visual panel image / formula
+  "PDF Specification",          // I (Col 9)  — Spec PDF link
+  "Qty",                        // J (Col 10)
+  "Unit Price (₹)",             // K (Col 11)
+  "Total Price (₹)",            // L (Col 12)
+  "Savings (₹)",                // M (Col 13)
+  "Step 1: Panel",              // N (Col 14)
+  "Step 2: Material",           // O (Col 15)
+  "Step 3: Size",               // P (Col 16)
+  "Step 4: Accessories",        // Q (Col 17)
+  "Step 5: Icons Count",        // R (Col 18)
+  "Step 5: Icon Names",         // S (Col 19)
+  "Step 6: Glass Color",        // T (Col 20)
+  "Step 6: Border Color",       // U (Col 21)
+  "Step 6: Button Color",       // V (Col 22)
+  "Step 7: Technology",         // W (Col 23)
+  "Step 8: Cart Status",        // X (Col 24)
+  "Raw JSON Data"               // Y (Col 25)
 ];
 
 // ─── STEP CONFIGURATOR LOGS (Steps 1 to 8 Live User Progress) ─────────────────
@@ -165,7 +166,7 @@ function doPost(e) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════
-// DELETE ITEM / CLEAR CART HANDLERS (DELETES ROW FROM GOOGLE SHEET)
+// DELETE ITEM / CLEAR CART HANDLERS
 // ══════════════════════════════════════════════════════════════════════════════════
 
 function handleDeleteItem(ss, body) {
@@ -178,11 +179,10 @@ function handleDeleteItem(ss, body) {
   var data = sheet.getDataRange().getValues();
   var deletedCount = 0;
 
-  // Search from bottom to top so row index remains accurate during deletion
   for (var i = data.length - 1; i >= 1; i--) {
-    var rowOrderId   = String(data[i][4] || ""); // Col E: Order ID
+    var rowOrderId   = String(data[i][4] || ""); // Col E: Cart / Order ID
     var rowUserEmail = String(data[i][2] || ""); // Col C: User Email
-    var rowProdName  = String(data[i][5] || ""); // Col F: Product Name
+    var rowProdName  = String(data[i][6] || ""); // Col G: Custom Product Name
 
     var isMatch = false;
     if (orderId && rowOrderId === String(orderId)) {
@@ -192,7 +192,7 @@ function handleDeleteItem(ss, body) {
     }
 
     if (isMatch) {
-      sheet.deleteRow(i + 1); // 1-indexed row number
+      sheet.deleteRow(i + 1);
       deletedCount++;
       Logger.log("Deleted row " + (i + 1) + " for orderId: " + orderId + " (" + productName + ")");
     }
@@ -210,7 +210,7 @@ function handleClearCart(ss, body) {
 
   for (var i = data.length - 1; i >= 1; i--) {
     var rowUserEmail = String(data[i][2] || ""); // Col C: User Email
-    var rowStatus    = String(data[i][16] || ""); // Col Q: Step 8 / Cart Status
+    var rowStatus    = String(data[i][23] || ""); // Col X: Step 8 / Cart Status
 
     if (!userEmail || rowUserEmail === String(userEmail)) {
       if (rowStatus.indexOf("Cart") !== -1 || rowStatus.indexOf("Configuring") !== -1) {
@@ -224,7 +224,7 @@ function handleClearCart(ss, body) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════
-// ORDER & ACTIVITY HANDLERS
+// ORDER HANDLER (My Cart & Steps 1-8 in Separate Columns with Image/PDF Formulas)
 // ══════════════════════════════════════════════════════════════════════════════════
 
 function handleOrderData(ss, body) {
@@ -236,9 +236,11 @@ function handleOrderData(ss, body) {
 
   var userEmail   = body.userEmail   || body.user_email   || body.email   || "";
   var userName    = body.userName    || body.user_name    || body.name    || "";
-  var orderId     = body.orderId     || body.order_id     || ("ORD-" + Date.now());
+  var cartOrderId = body.orderId     || body.order_id     || ("ORD-" + Date.now());
+  var productId   = body.productId   || body.productSequence || body.id || "";
   var productName = body.customName  || body.orderName    || body.itemName || "Custom Switch Panel";
 
+  // Step 1 to 8 Individual Values
   var step1Panel  = body.panel       || body.panelType    || getProp(body, "cartData.panel.item")    || "";
   var step2Mat    = body.material    || body.materialType || getProp(body, "cartData.material.item") || "";
   var step3Size   = body.size        || body.sizeModule   || getProp(body, "cartData.size.item")     || "";
@@ -255,8 +257,9 @@ function handleOrderData(ss, body) {
   var unitPrice   = body.unitPrice   || body.unit_price   || "";
   var totalPrice  = body.totalPrice  || body.priceFormatted || body.price || "";
   var savings     = body.savings     || "₹ 0.00";
-  var productSeq  = body.productSequence || body.productId || "";
-  var imageUrl    = body.imagePreview|| body.preview      || "";
+
+  var rawImageUrl = body.imagePreview|| body.preview      || "";
+  var rawPdfUrl   = body.flowPdf     || body.pdf          || body.pdfUrl || "";
 
   var rawJson = "";
   try { rawJson = JSON.stringify(body); } catch(e) { rawJson = ""; }
@@ -264,24 +267,44 @@ function handleOrderData(ss, body) {
   if (Array.isArray(step4Acc))   step4Acc   = step4Acc.join(", ");
   if (Array.isArray(step5Names)) step5Names = step5Names.join(", ");
 
-  var rowData = [
-    dateStr, timeStr, userEmail, userName, orderId, productName,
-    step1Panel, step2Mat, step3Size, step4Acc, step5Count, step5Names,
-    step6Glass, step6Border, step6Button, step7Tech, step8Status,
-    quantity, unitPrice, totalPrice, savings, productSeq, imageUrl, rawJson
-  ];
-
-  var existingRow = findExistingRow(sheet, orderId, productName);
-  if (existingRow > 0) {
-    sheet.getRange(existingRow, 1, 1, rowData.length).setValues([rowData]);
-    Logger.log("Updated row " + existingRow + " for order " + orderId);
-  } else {
-    sheet.appendRow(rowData);
-    Logger.log("Appended new row for order " + orderId);
+  // Formats for Preview Image and PDF
+  var imageCellVal = rawImageUrl;
+  if (rawImageUrl.startsWith("http")) {
+    imageCellVal = '=IMAGE("' + rawImageUrl + '")';
   }
 
+  var pdfCellVal = rawPdfUrl;
+  if (rawPdfUrl.startsWith("http")) {
+    pdfCellVal = '=HYPERLINK("' + rawPdfUrl + '", "📄 Download Spec PDF")';
+  } else if (rawPdfUrl.startsWith("data:application/pdf")) {
+    pdfCellVal = "PDF Spec Generated (Data URL)";
+  }
+
+  var rowData = [
+    dateStr, timeStr, userEmail, userName, cartOrderId, productId, productName,
+    imageCellVal, pdfCellVal, quantity, unitPrice, totalPrice, savings,
+    step1Panel, step2Mat, step3Size, step4Acc, step5Count, step5Names,
+    step6Glass, step6Border, step6Button, step7Tech, step8Status, rawJson
+  ];
+
+  var existingRow = findExistingRow(sheet, cartOrderId, productName);
+  var targetRowIndex = existingRow > 0 ? existingRow : (sheet.getLastRow() + 1);
+
+  if (existingRow > 0) {
+    sheet.getRange(existingRow, 1, 1, rowData.length).setValues([rowData]);
+    Logger.log("Updated row " + existingRow + " for order " + cartOrderId);
+  } else {
+    sheet.appendRow(rowData);
+    Logger.log("Appended new row for order " + cartOrderId);
+  }
+
+  // Set row height for preview image readability
+  try {
+    sheet.setRowHeight(targetRowIndex, 50);
+  } catch(e) {}
+
   autoFormatSheet(sheet);
-  return jsonResponse({ success: true, orderId: orderId, action: existingRow > 0 ? "updated" : "created" });
+  return jsonResponse({ success: true, orderId: cartOrderId, action: existingRow > 0 ? "updated" : "created" });
 }
 
 function handleStepConfigLog(ss, body) {
@@ -411,7 +434,7 @@ function getOrCreateSheet(ss, name, headers) {
     headerRange.setFontColor("#ffffff");
     sheet.setFrozenRows(1);
     for (var i = 1; i <= headers.length; i++) {
-      sheet.setColumnWidth(i, 150);
+      sheet.setColumnWidth(i, 160);
     }
     Logger.log("Created sheet: " + name);
   } else {
@@ -424,10 +447,10 @@ function getOrCreateSheet(ss, name, headers) {
   return sheet;
 }
 
-function findExistingRow(sheet, orderId, productName) {
+function findExistingRow(sheet, cartOrderId, productName) {
   var data = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][4]) === String(orderId) && String(data[i][5]) === String(productName)) {
+    if (String(data[i][4]) === String(cartOrderId) && String(data[i][6]) === String(productName)) {
       return i + 1;
     }
   }
