@@ -882,7 +882,7 @@ function checkAndInjectOrdersView() {
         background: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.07); border-radius: 16px;
         border: 1px solid rgba(25, 118, 210, 0.12); font-family: 'Inter', sans-serif;
     `;
-    container.innerHTML = `<p style="color:#6B7280;font-size:14px;margin:0;">⏳ Fetching records from Google Sheet & server...</p>`;
+    container.innerHTML = `<p style="color:#6B7280;font-size:14px;margin:0;">⏳ Fetching user-specific records from Google Sheet...</p>`;
 
     const targetParent = document.querySelector('main') || document.querySelector('.MuiContainer-root') || document.body;
     if (targetParent.firstChild) {
@@ -891,15 +891,24 @@ function checkAndInjectOrdersView() {
         targetParent.appendChild(container);
     }
 
+    const currentUserEmail = (typeof getUserId === 'function' ? getUserId() : '').trim().toLowerCase();
+
+    // Construct URL for GAS with email filter if available
+    let gasUrl = getWebAppUrl();
+    if (currentUserEmail && gasUrl && gasUrl.startsWith('http')) {
+        const sep = gasUrl.includes('?') ? '&' : '?';
+        gasUrl = gasUrl + sep + 'action=getOrders&email=' + encodeURIComponent(currentUserEmail);
+    }
+
     // Fetch from both Google Apps Script and local server (/api/orders-data)
     Promise.allSettled([
-        fetch(getWebAppUrl()).then(r => r.json()),
+        fetch(gasUrl).then(r => r.json()),
         fetch('/api/orders-data').then(r => r.json())
     ]).then(results => {
         let gasRows = results[0].status === 'fulfilled' && Array.isArray(results[0].value) ? results[0].value : [];
         let localRows = results[1].status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value : [];
 
-        // Combine all rows, prioritizing GAS rows first
+        // Combine all rows
         let combinedMap = {};
         gasRows.forEach((r, i) => {
             let key = extractRowField(r, ['Cart / Order ID', 'Order ID', 'orderId', 'id']) || ('gas_' + i);
@@ -913,10 +922,11 @@ function checkAndInjectOrdersView() {
         let rawRows = Object.values(combinedMap);
 
         // Map and extract fields across all column naming conventions
-        const validRows = rawRows.map((row, index) => {
-            const orderId = extractRowField(row, ['Cart / Order ID', 'Order ID', 'orderId', 'order_id', 'id', 'Cart ID']) || ('ORD-' + (1000 + index));
-            const prodId  = extractRowField(row, ['Product ID', 'productId', 'productSequence', 'prodId']) || '—';
-            const name    = extractRowField(row, ['Custom Product Name', 'Product / Order Name', 'Panel Name', 'customName', 'orderName', 'itemName', 'panelName', 'Name', 'Item']) || 'Custom Switch Panel';
+        let validRows = rawRows.map((row, index) => {
+            const orderId   = extractRowField(row, ['Cart / Order ID', 'Order ID', 'orderId', 'order_id', 'id', 'Cart ID']) || ('ORD-' + (1000 + index));
+            const prodId    = extractRowField(row, ['Product ID', 'productId', 'productSequence', 'prodId']) || '—';
+            const name      = extractRowField(row, ['Custom Product Name', 'Product / Order Name', 'Panel Name', 'customName', 'orderName', 'itemName', 'panelName', 'Name', 'Item']) || 'Custom Switch Panel';
+            const userEmail = extractRowField(row, ['User Email', 'userEmail', 'email', 'User_Email', 'user_email']);
 
             let rawPrice = extractRowField(row, ['Total Price (₹)', 'Total Price', 'Price', 'unitPrice', 'priceFormatted', 'price', 'Amount', 'Cost']);
             let priceVal = '₹ 0.00';
@@ -932,8 +942,16 @@ function checkAndInjectOrdersView() {
             const date = extractRowField(row, ['Date', 'date', 'Time', 'time', 'timestamp', 'Timestamp', 'Created At']) || '—';
             const status = extractRowField(row, ['Step 8: Cart Status', 'Status', 'status']) || 'Synced';
 
-            return { orderId, prodId, name, priceVal, date, status };
+            return { orderId, prodId, name, priceVal, date, status, userEmail };
         }).filter(r => r.name || r.orderId);
+
+        // FILTER USER-WISE: If user logged in (and not admin info@smartiqo.com), show ONLY that user's records!
+        if (currentUserEmail && currentUserEmail !== 'info@smartiqo.com') {
+            validRows = validRows.filter(r => {
+                if (!r.userEmail) return true; // keep if email field empty
+                return r.userEmail.trim().toLowerCase() === currentUserEmail;
+            });
+        }
 
         // TOP 5 RECORDS ONLY
         const top5 = validRows.slice(0, 5);
@@ -941,7 +959,7 @@ function checkAndInjectOrdersView() {
         let html = `
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
                 <h3 style="color:#10B981;margin:0;font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px;">
-                    <span>✅</span> Synced Google Sheet Orders (${validRows.length} Total)
+                    <span>✅</span> Synced Google Sheet Orders ${currentUserEmail ? ('(' + currentUserEmail + ')') : ''}
                 </h3>
                 <div style="display:flex;align-items:center;gap:10px;">
                     <span style="font-size:12px;color:#6B7280;background:#F3F4F6;padding:4px 12px;border-radius:9999px;font-weight:600;">
@@ -968,7 +986,7 @@ function checkAndInjectOrdersView() {
         `;
 
         if (top5.length === 0) {
-            html += `<tr><td colspan="6" style="padding:24px;text-align:center;color:#9CA3AF;">No synced orders found yet. Configure and add panels to see data here.</td></tr>`;
+            html += `<tr><td colspan="6" style="padding:24px;text-align:center;color:#9CA3AF;">No synced orders found for this account. Add items to cart to see data here.</td></tr>`;
         } else {
             top5.forEach(item => {
                 html += `
