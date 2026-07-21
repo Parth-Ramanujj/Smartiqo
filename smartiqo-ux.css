@@ -1,24 +1,38 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   SmartiQo UI/UX Enhancement Sheet  (loaded via custom-cart-sync.js after MUI)
-   All selectors use :root + high-specificity to beat MUI JSS
+   SmartiQo UI/UX & Site-Wide Production Responsive CSS System (v22)
+   Breakpoints: 320px | 375px | 390px | 414px | 480px | 576px | 768px | 992px | 1200px | 1440px | 1920px+ (4K)
+   All selectors use high specificity + :root override to beat MUI / Next JSS
    ════════════════════════════════════════════════════════════════════════════ */
 
-/* ── 0. Google Fonts ───────────────────────────────────────────────────────── */
+/* ── 0. Google Fonts & Root Tokens ────────────────────────────────────────── */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-/* ── 0. Root Tokens ────────────────────────────────────────────────────────── */
 :root {
   --sc-primary       : #1976d2;
   --sc-primary-dark  : #115293;
   --sc-success       : #10b981;
-  --sc-radius        : 10px;
-  --sc-shadow        : 0 2px 12px rgba(0,0,0,.10);
-  --sc-shadow-hover  : 0 6px 24px rgba(25,118,210,.18);
+  --sc-radius        : 12px;
+  --sc-shadow        : 0 2px 12px rgba(0,0,0,.08);
+  --sc-shadow-hover  : 0 8px 28px rgba(25,118,210,.18);
   --sc-t             : .22s cubic-bezier(.4,0,.2,1);
   --sc-font          : 'Inter', system-ui, -apple-system, sans-serif;
+  --sc-header-height : 70px;
+  --sc-sidebar-width: 260px;
 }
 
-/* ── 1. FONT ───────────────────────────────────────────────────────────────── */
+/* ── 1. GLOBAL TYPOGRAPHY & FLUID CONTAINERS ───────────────────────────────── */
+*, ::before, ::after {
+  box-sizing: border-box !important;
+}
+
+html, body {
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+  font-family: var(--sc-font) !important;
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+}
+
 body,
 .MuiTypography-root,
 .MuiButton-root,
@@ -26,29 +40,36 @@ input, select, textarea {
   font-family: var(--sc-font) !important;
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   2.  AUTO-SELECT TOGGLE  (MUI Switch)
-   ══════════════════════════════════════════════════════════════════════ */
+/* Fluid Main Container */
+main,
+.MuiContainer-root,
+#__next > div {
+  width: 100% !important;
+  max-width: 1600px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  box-sizing: border-box !important;
+}
+
+/* ── 2. AUTO-SELECT TOGGLE (MUI Switch) ────────────────────────────────────── */
 .MuiSwitch-root {
   cursor: pointer !important;
+  user-select: none !important;
 }
 .MuiSwitch-switchBase {
   transition: transform 220ms cubic-bezier(.4,0,.2,1) !important;
 }
 .MuiSwitch-track {
-  transition: background-color 220ms cubic-bezier(.4,0,.2,1),
-              opacity           220ms cubic-bezier(.4,0,.2,1) !important;
+  transition: background-color 220ms cubic-bezier(.4,0,.2,1), opacity 220ms cubic-bezier(.4,0,.2,1) !important;
   border-radius: 99px !important;
   opacity: 1 !important;
 }
-/* GREEN when checked */
 .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track {
   background-color: #10b981 !important;
   opacity: 1 !important;
 }
 .MuiSwitch-thumb {
   box-shadow: 0 1px 4px rgba(0,0,0,.25) !important;
-  transition: transform 220ms cubic-bezier(.4,0,.2,1) !important;
 }
 .MuiSwitch-root:hover {
   opacity: .88 !important;
@@ -58,24 +79,16 @@ input, select, textarea {
   outline-offset: 2px !important;
   border-radius: 14px !important;
 }
-.MuiFormControlLabel-root {
-  cursor: pointer !important;
-  user-select: none !important;
-}
 
-/* ══════════════════════════════════════════════════════════════════════
-   3.  BUTTONS
-   ══════════════════════════════════════════════════════════════════════ */
+/* ── 3. RESPONSIVE BUTTONS & TOUCH TARGETS ─────────────────────────────────── */
 .MuiButton-root {
   font-family: var(--sc-font) !important;
   font-weight: 600 !important;
   letter-spacing: .01em !important;
   border-radius: 8px !important;
+  min-height: 40px !important;
   will-change: transform, box-shadow !important;
-  transition: transform var(--sc-t),
-              box-shadow var(--sc-t),
-              background-color var(--sc-t) !important;
-  overflow: hidden !important;
+  transition: transform var(--sc-t), box-shadow var(--sc-t), background-color var(--sc-t) !important;
 }
 .MuiButton-root:hover:not(:disabled) {
   transform: translateY(-1px) !important;
@@ -85,12 +98,6 @@ input, select, textarea {
   transform: translateY(0) scale(.98) !important;
   box-shadow: none !important;
 }
-.MuiButton-root:focus-visible {
-  outline: 2px solid var(--sc-primary) !important;
-  outline-offset: 3px !important;
-}
-
-/* Primary gradient */
 .MuiButton-containedPrimary {
   background: linear-gradient(135deg, #1976d2 0%, #115293 100%) !important;
 }
@@ -98,268 +105,250 @@ input, select, textarea {
   background: linear-gradient(135deg, #1e88e5 0%, #1976d2 100%) !important;
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   4.  CARDS & PAPER
-   ══════════════════════════════════════════════════════════════════════ */
-.MuiCard-root {
+/* ── 4. CARDS & GRID LAYOUTS ───────────────────────────────────────────────── */
+.MuiCard-root, .MuiPaper-root {
   border-radius: var(--sc-radius) !important;
   transition: box-shadow var(--sc-t), transform var(--sc-t) !important;
+  max-width: 100% !important;
 }
 .MuiCard-root:hover {
   box-shadow: var(--sc-shadow-hover) !important;
-  transform: translateY(-2px) !important;
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   5.  INPUTS
-   ══════════════════════════════════════════════════════════════════════ */
-.MuiOutlinedInput-root {
-  border-radius: 8px !important;
-  transition: box-shadow var(--sc-t) !important;
-}
-.MuiOutlinedInput-root.Mui-focused {
-  box-shadow: 0 0 0 3px rgba(25,118,210,.18) !important;
-}
-.MuiOutlinedInput-notchedOutline {
-  transition: border-color var(--sc-t) !important;
+/* Responsive Grid Helper */
+.sc-grid-responsive {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+  gap: 16px !important;
+  width: 100% !important;
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   6.  STEPPER STEPS  (clickable)
-   ══════════════════════════════════════════════════════════════════════ */
-.MuiStep-root,
-.MuiStepLabel-root,
-.MuiStepLabel-iconContainer,
-.MuiStepLabel-labelContainer {
-  cursor: pointer !important;
+/* ── 5. RESPONSIVE HEADER & APPBAR ─────────────────────────────────────────── */
+header, .MuiAppBar-root {
+  width: 100% !important;
+  max-width: 100vw !important;
+  box-sizing: border-box !important;
 }
-.MuiStep-root:hover .MuiStepLabel-label {
-  color: var(--sc-primary) !important;
-  font-weight: 600 !important;
-}
-.MuiStepIcon-root {
-  transition: transform var(--sc-t) !important;
-}
-.MuiStep-root:hover .MuiStepIcon-root {
-  transform: scale(1.1) !important;
-}
-.MuiStepIcon-root.Mui-active {
-  filter: drop-shadow(0 2px 6px rgba(25,118,210,.35)) !important;
-}
-.MuiStepConnector-line {
-  transition: border-color .4s !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   7.  TABLE ROWS
-   ══════════════════════════════════════════════════════════════════════ */
-.MuiTableRow-root {
-  transition: background var(--sc-t) !important;
-}
-.MuiTableRow-root:not(.MuiTableRow-head):hover td,
-.MuiTableRow-root:not(.MuiTableRow-head):hover th {
-  background: rgba(25,118,210,.04) !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   8.  ICON BUTTONS
-   ══════════════════════════════════════════════════════════════════════ */
-.MuiIconButton-root {
-  transition: background var(--sc-t), transform var(--sc-t) !important;
-  will-change: transform !important;
-}
-.MuiIconButton-root:hover {
-  transform: scale(1.12) !important;
-  background: rgba(25,118,210,.10) !important;
-}
-.MuiIconButton-root:active {
-  transform: scale(.92) !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   9.  SIDEBAR / NAV LIST ITEMS
-   ══════════════════════════════════════════════════════════════════════ */
-.MuiListItemButton-root {
-  border-radius: 8px !important;
-  margin: 2px 8px !important;
-  transition: background var(--sc-t), transform var(--sc-t) !important;
-}
-.MuiListItemButton-root:hover {
-  background: rgba(25,118,210,.08) !important;
-  transform: translateX(3px) !important;
-}
-.MuiListItemButton-root.Mui-selected {
-  background: rgba(25,118,210,.14) !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   10.  MENU ITEMS
-   ══════════════════════════════════════════════════════════════════════ */
-.MuiMenuItem-root {
-  border-radius: 6px !important;
-  margin: 2px 4px !important;
-  transition: background var(--sc-t), padding-left var(--sc-t) !important;
-}
-.MuiMenuItem-root:hover {
-  background: rgba(25,118,210,.08) !important;
-  padding-left: 20px !important;
-}
-.MuiMenuItem-root.Mui-selected {
-  background: rgba(25,118,210,.14) !important;
-  font-weight: 600 !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   11.  CHIPS / BADGES
-   ══════════════════════════════════════════════════════════════════════ */
-.MuiChip-root {
-  font-family: var(--sc-font) !important;
-  transition: transform var(--sc-t), box-shadow var(--sc-t) !important;
-}
-.MuiChip-root:hover {
-  transform: scale(1.04) !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,.12) !important;
-}
-.MuiBadge-badge {
-  font-weight: 700 !important;
-  min-width: 20px !important;
-  height: 20px !important;
-  font-size: 11px !important;
-  transition: transform var(--sc-t) !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   12.  DIALOG / MODAL
-   ══════════════════════════════════════════════════════════════════════ */
-.MuiDialog-paper {
-  border-radius: 14px !important;
-  animation: sc-dialogIn 240ms cubic-bezier(.34,1.56,.64,1) both !important;
-}
-@keyframes sc-dialogIn {
-  from { opacity:0; transform:scale(.94) translateY(8px); }
-  to   { opacity:1; transform:scale(1)   translateY(0);   }
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   13.  ACCORDION
-   ══════════════════════════════════════════════════════════════════════ */
-.MuiAccordion-root {
-  border-radius: 8px !important;
-  transition: box-shadow var(--sc-t) !important;
-}
-.MuiAccordion-root.Mui-expanded {
-  box-shadow: 0 4px 20px rgba(0,0,0,.10) !important;
-}
-.MuiAccordionSummary-root {
-  transition: background var(--sc-t) !important;
-}
-.MuiAccordionSummary-root:hover {
-  background: rgba(25,118,210,.04) !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   14.  TOOLTIP
-   ══════════════════════════════════════════════════════════════════════ */
-.MuiTooltip-tooltip {
-  font-family: var(--sc-font) !important;
-  font-size: 12px !important;
-  font-weight: 500 !important;
-  border-radius: 6px !important;
-  padding: 5px 10px !important;
-  background: rgba(20,20,30,.88) !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   15.  CART ICON
-   ══════════════════════════════════════════════════════════════════════ */
-#sc-cart-btn {
-  cursor: pointer !important;
-  border-radius: 50% !important;
-  padding: 6px !important;
-  transition: transform var(--sc-t), box-shadow var(--sc-t), background var(--sc-t) !important;
-  display: inline-flex !important;
+header > div, .MuiAppBar-root > div {
+  display: flex !important;
   align-items: center !important;
-  justify-content: center !important;
+  justify-content: space-between !important;
+  flex-wrap: nowrap !important;
+  padding: 8px 16px !important;
 }
-#sc-cart-btn:hover {
-  transform: scale(1.15) !important;
-  background: rgba(25,118,210,.10) !important;
-  box-shadow: 0 2px 12px rgba(25,118,210,.18) !important;
-}
-#sc-cart-btn:active {
-  transform: scale(.95) !important;
+header img {
+  max-height: 50px !important;
+  width: auto !important;
+  object-fit: contain !important;
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   16.  GLOBAL LOADING OVERLAY
-   ══════════════════════════════════════════════════════════════════════ */
-#sc-loading-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 99999;
-  display: flex;
+/* Mobile Hamburger Toggle Button */
+#sc-mobile-hamburger {
+  display: none;
   align-items: center;
   justify-content: center;
-  background: rgba(255,255,255,.72);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 220ms cubic-bezier(.4,0,.2,1);
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(25,118,210,0.10);
+  color: #1976d2;
+  cursor: pointer;
+  margin-right: 10px;
+  transition: background 0.2s, transform 0.2s;
+  z-index: 1001;
 }
-#sc-loading-overlay.sc-visible {
-  opacity: 1;
-  pointer-events: all;
+#sc-mobile-hamburger:hover {
+  background: rgba(25,118,210,0.18);
+  transform: scale(1.05);
 }
+
+/* ── 6. RESPONSIVE SIDEBAR / DRAWER ────────────────────────────────────────── */
+@media (max-width: 991px) {
+  #sc-mobile-hamburger {
+    display: inline-flex !important;
+  }
+  .MuiDrawer-root .MuiPaper-root,
+  nav[class*="sidebar" i],
+  aside[class*="sidebar" i] {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    z-index: 1200 !important;
+    width: 270px !important;
+    transform: translateX(-100%) !important;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.18) !important;
+  }
+  body.sc-drawer-open .MuiDrawer-root .MuiPaper-root,
+  body.sc-drawer-open nav[class*="sidebar" i],
+  body.sc-drawer-open aside[class*="sidebar" i] {
+    transform: translateX(0) !important;
+  }
+  
+  /* Backdrop Overlay */
+  #sc-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    backdrop-filter: blur(3px);
+    z-index: 1199;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  body.sc-drawer-open #sc-drawer-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* ── 7. PRODUCT CONFIGURATOR WIZARD (STEPPER & OPTIONS) ────────────────────── */
+.MuiStepper-root {
+  display: flex !important;
+  overflow-x: auto !important;
+  padding: 12px 8px !important;
+  scroll-behavior: smooth !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+.MuiStepper-root::-webkit-scrollbar {
+  height: 4px;
+}
+.MuiStep-root {
+  flex-shrink: 0 !important;
+  min-width: 100px !important;
+}
+
+/* ── 8. RESPONSIVE TABLES & MOBILE CARD TRANSFORMATION ────────────────────── */
+.sc-table-container {
+  width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  border-radius: var(--sc-radius) !important;
+}
+
+@media (max-width: 768px) {
+  /* Stacked card representation for mobile tables */
+  .sc-mobile-card-table .MuiTableHead-root,
+  .sc-mobile-card-table thead {
+    display: none !important;
+  }
+  .sc-mobile-card-table .MuiTableRow-root,
+  .sc-mobile-card-table tbody tr {
+    display: block !important;
+    margin-bottom: 14px !important;
+    padding: 14px !important;
+    border: 1px solid rgba(25,118,210,0.14) !important;
+    border-radius: 12px !important;
+    background: #ffffff !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.05) !important;
+  }
+  .sc-mobile-card-table .MuiTableCell-root,
+  .sc-mobile-card-table tbody td {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 8px 4px !important;
+    border-bottom: 1px solid rgba(0,0,0,0.05) !important;
+    font-size: 13px !important;
+    text-align: right !important;
+  }
+  .sc-mobile-card-table .MuiTableCell-root:last-child,
+  .sc-mobile-card-table tbody td:last-child {
+    border-bottom: none !important;
+  }
+  .sc-mobile-card-table .MuiTableCell-root::before,
+  .sc-mobile-card-table tbody td::before {
+    content: attr(data-label) !important;
+    font-weight: 700 !important;
+    color: #4b5563 !important;
+    text-align: left !important;
+    margin-right: 12px !important;
+  }
+}
+
+/* ── 9. FORMS, INPUTS & MODALS ─────────────────────────────────────────────── */
+.MuiOutlinedInput-root, select, input[type="text"], input[type="email"], input[type="password"] {
+  width: 100% !important;
+  min-height: 44px !important;
+  border-radius: 8px !important;
+}
+.MuiDialog-paper {
+  max-width: 94vw !important;
+  margin: 12px !important;
+  border-radius: 16px !important;
+}
+
+/* ── 10. BREAKPOINTS SPECIFIC POLISH ──────────────────────────────────────── */
+
+/* Extra Small Devices (320px - 480px) */
+@media (max-width: 480px) {
+  header > div {
+    padding: 6px 10px !important;
+  }
+  header #upgrade-switchcraft-button {
+    display: none !important; /* Hide non-critical promo text on tiny screens */
+  }
+  .MuiTypography-h1, .MuiTypography-h2, h1, h2 {
+    font-size: 1.4rem !important;
+  }
+  .MuiTypography-h3, .MuiTypography-h4, h3, h4 {
+    font-size: 1.2rem !important;
+  }
+  .MuiButton-root {
+    width: 100% !important;
+    margin-bottom: 8px !important;
+  }
+  #header-cart-btn, #sc-mobile-hamburger, #notification-bell {
+    width: 38px !important;
+    height: 38px !important;
+  }
+}
+
+/* Small Tablets & Large Phones (481px - 768px) */
+@media (min-width: 481px) and (max-width: 768px) {
+  .MuiTypography-h1, h1 { font-size: 1.75rem !important; }
+  .MuiTypography-h2, h2 { font-size: 1.5rem !important; }
+}
+
+/* Tablets (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  main, .MuiContainer-root { padding-left: 20px !important; padding-right: 20px !important; }
+}
+
+/* Ultra-wide & 4K Displays (1920px+) */
+@media (min-width: 1920px) {
+  main, .MuiContainer-root {
+    max-width: 1800px !important;
+  }
+  body {
+    font-size: 16px !important;
+  }
+}
+
+/* Touch Device Optimization */
+@media (hover: none) {
+  .MuiButton-root:hover, .MuiCard-root:hover, .MuiIconButton-root:hover {
+    transform: none !important;
+  }
+  input, select, button {
+    font-size: 16px !important; /* Prevents iOS auto-zoom on input focus */
+  }
+}
+
+/* ── 11. OVERLAY & SPINNER ─────────────────────────────────────────────────── */
+#sc-loading-overlay {
+  position: fixed; inset: 0; z-index: 99999;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.75);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  opacity: 0; pointer-events: none; transition: opacity 220ms ease;
+}
+#sc-loading-overlay.sc-visible { opacity: 1; pointer-events: all; }
 .sc-spinner {
-  width: 44px;
-  height: 44px;
-  border: 3.5px solid rgba(25,118,210,.18);
-  border-top-color: #1976d2;
-  border-radius: 50%;
-  animation: sc-spin .72s linear infinite;
-  box-shadow: 0 4px 16px rgba(25,118,210,.18);
+  width: 44px; height: 44px;
+  border: 3.5px solid rgba(25,118,210,.18); border-top-color: #1976d2;
+  border-radius: 50%; animation: sc-spin .72s linear infinite;
 }
 @keyframes sc-spin { to { transform: rotate(360deg); } }
-
-/* ══════════════════════════════════════════════════════════════════════
-   17.  PAGE FADE-IN
-   ══════════════════════════════════════════════════════════════════════ */
-.sc-page-fade {
-  animation: sc-fadeIn 300ms cubic-bezier(.4,0,.2,1) both;
-}
-@keyframes sc-fadeIn {
-  from { opacity:0; transform:translateY(6px); }
-  to   { opacity:1; transform:translateY(0); }
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   18.  SCROLLBAR
-   ══════════════════════════════════════════════════════════════════════ */
-::-webkit-scrollbar              { width:6px; height:6px; }
-::-webkit-scrollbar-track        { background:transparent; }
-::-webkit-scrollbar-thumb        { background:rgba(25,118,210,.28); border-radius:99px; }
-::-webkit-scrollbar-thumb:hover  { background:rgba(25,118,210,.55); }
-
-/* ══════════════════════════════════════════════════════════════════════
-   19.  SELECT / AUTOCOMPLETE
-   ══════════════════════════════════════════════════════════════════════ */
-.MuiAutocomplete-popper .MuiPaper-root {
-  border-radius: var(--sc-radius) !important;
-  box-shadow: 0 8px 32px rgba(0,0,0,.14) !important;
-  animation: sc-dialogIn 180ms ease both !important;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   20.  RESPONSIVE
-   ══════════════════════════════════════════════════════════════════════ */
-@media (max-width: 768px) {
-  .MuiButton-root { min-height: 42px !important; font-size: 14px !important; }
-  .sc-spinner { width: 36px !important; height: 36px !important; }
-}
-@media (hover: none) {
-  /* Remove hover-lift on touch so elements don't stay lifted */
-  .MuiButton-root:hover,
-  .MuiCard-root:hover,
-  .MuiIconButton-root:hover { transform: none !important; }
-}

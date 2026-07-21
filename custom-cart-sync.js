@@ -2084,3 +2084,136 @@ body,.MuiTypography-root,.MuiButton-root,input,select,textarea{
     window.addEventListener('popstate', () => setTimeout(scHideLoading, 350));
 
 })();
+
+
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║      SmartiQo Mobile & Production Responsive Runtime Module (v22)        ║
+// ║  • Mobile Hamburger & Off-Canvas Drawer Enforcer                         ║
+// ║  • Mobile Card Table Transformer (Data Label Injector)                   ║
+// ║  • Stepper Auto-Scroll & Touch Navigation                                ║
+// ║  • Dynamic Viewport & Orientation Handler                                ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+
+(function initSmartiQoResponsiveRuntime() {
+    'use strict';
+
+    // ─── 1. MOBILE HAMBURGER TOGGLE & OFF-CANVAS DRAWER ───────────────────────
+    function setupMobileDrawer() {
+        // Ensure Backdrop exists
+        let backdrop = document.getElementById('sc-drawer-backdrop');
+        if (!backdrop) {
+            backdrop = document.createElement('div');
+            backdrop.id = 'sc-drawer-backdrop';
+            backdrop.addEventListener('click', closeMobileDrawer);
+            document.body.appendChild(backdrop);
+        }
+
+        // Find or build Mobile Hamburger Button in Header
+        const header = document.querySelector('header, .MuiAppBar-root');
+        if (header) {
+            let burger = document.getElementById('sc-mobile-hamburger');
+            if (!burger) {
+                burger = document.createElement('button');
+                burger.id = 'sc-mobile-hamburger';
+                burger.type = 'button';
+                burger.setAttribute('aria-label', 'Toggle Navigation Menu');
+                burger.setAttribute('title', 'Toggle Navigation');
+                burger.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>';
+                burger.addEventListener('click', toggleMobileDrawer);
+
+                // Insert burger at left of header
+                const firstChild = header.firstElementChild || header;
+                if (firstChild.firstElementChild) {
+                    firstChild.insertBefore(burger, firstChild.firstElementChild);
+                } else {
+                    firstChild.appendChild(burger);
+                }
+            }
+        }
+
+        // Close drawer automatically on navigation item click
+        document.querySelectorAll('.MuiListItemButton-root, nav a, aside a').forEach(item => {
+            if (!item.dataset.scDrawerClose) {
+                item.dataset.scDrawerClose = '1';
+                item.addEventListener('click', () => {
+                    if (window.innerWidth <= 991) {
+                        closeMobileDrawer();
+                    }
+                });
+            }
+        });
+    }
+
+    function toggleMobileDrawer(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        document.body.classList.toggle('sc-drawer-open');
+    }
+
+    function closeMobileDrawer() {
+        document.body.classList.remove('sc-drawer-open');
+    }
+
+    // ─── 2. MOBILE TABLE TRANSFORMER ───────────────────────────────────────────
+    function transformTablesForMobile() {
+        const tables = document.querySelectorAll('table:not([data-sc-responsive])');
+        tables.forEach(table => {
+            table.dataset.scResponsive = '1';
+            table.classList.add('sc-mobile-card-table');
+
+            // Wrap table in overflow container if needed
+            if (table.parentElement && !table.parentElement.classList.contains('sc-table-container')) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'sc-table-container';
+                table.parentElement.insertBefore(wrapper, table);
+                wrapper.appendChild(table);
+            }
+
+            // Extract header labels
+            const headers = Array.from(table.querySelectorAll('thead th, tr:first-child th')).map(th => (th.textContent || '').trim());
+            if (!headers.length) return;
+
+            // Apply data-label to td elements for mobile card display
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                cells.forEach((cell, idx) => {
+                    if (headers[idx] && !cell.getAttribute('data-label')) {
+                        cell.setAttribute('data-label', headers[idx]);
+                    }
+                });
+            });
+        });
+    }
+
+    // ─── 3. STEPPER AUTO-SCROLL TO ACTIVE STEP ─────────────────────────────────
+    function autoScrollActiveStep() {
+        const activeStep = document.querySelector('.MuiStep-root .Mui-active, .MuiStep-root .MuiStepIcon-active');
+        if (activeStep) {
+            const stepContainer = activeStep.closest('.MuiStepper-root');
+            if (stepContainer) {
+                const stepEl = activeStep.closest('.MuiStep-root');
+                if (stepEl) {
+                    const scrollLeft = stepEl.offsetLeft - (stepContainer.offsetWidth / 2) + (stepEl.offsetWidth / 2);
+                    stepContainer.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+                }
+            }
+        }
+    }
+
+    // ─── RUNNER & INTERVAL ────────────────────────────────────────────────────
+    function runResponsiveTasks() {
+        setupMobileDrawer();
+        transformTablesForMobile();
+        autoScrollActiveStep();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', runResponsiveTasks);
+    } else {
+        runResponsiveTasks();
+    }
+
+    setInterval(runResponsiveTasks, 800);
+    window.addEventListener('resize', runResponsiveTasks);
+
+})();
