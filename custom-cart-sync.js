@@ -654,8 +654,8 @@ document.addEventListener('click', function(e) {
         const text = (btn.textContent || btn.value || '').trim().toLowerCase();
 
         // 1. Detect clicking "Edit Item" on a row in My Cart
-        if (text.includes('edit item') || text === 'edit' || btn.getAttribute('aria-label') === 'edit item') {
-            console.log('[CartSync] Edit Item clicked, processing design restoration...');
+        if (text.includes('edit item') || text === 'edit' || btn.getAttribute('aria-label') === 'edit item' || btn.querySelector('svg[data-testid="EditIcon"]')) {
+            console.log('[CartSync] Edit Item (Pencil Icon) clicked, processing design restoration into Configurator Wizard...');
             const row = btn.closest('tr');
             let matchedItem = null;
 
@@ -669,7 +669,6 @@ document.addEventListener('click', function(e) {
                         const rowIndex = allRows.indexOf(row);
                         const rowText = row.textContent || '';
 
-                        // Find matching item by ID/sequence text or row index
                         matchedItem = cartItems.find(item => {
                             const seq = (item.productSequence || '').trim();
                             const id = (item.id || '').trim();
@@ -678,32 +677,42 @@ document.addEventListener('click', function(e) {
                         }) || cartItems[rowIndex] || cartItems[0];
                     }
 
+                    if (!matchedItem && cartItems.length > 0) {
+                        matchedItem = cartItems[0];
+                    }
+
                     if (matchedItem) {
-                        console.log('[CartSync] Loading item into editor state:', matchedItem);
+                        console.log('[CartSync] Loading item into Configurator Wizard state:', matchedItem);
                         const editId = matchedItem.id || matchedItem.productSequence || 'ITEM-EDIT';
                         localStorage.setItem('sc_editing_item_id', editId);
                         localStorage.setItem('sc_editing_item_data', JSON.stringify(matchedItem));
 
-                        // Restore item into active Redux customizer state
-                        window.__store.dispatch({
-                            type: 'cartData/setCartFromOrder',
-                            payload: {
-                                cart: matchedItem.cartData,
-                                dropped: matchedItem.dropped || []
-                            }
-                        });
-
+                        // Hydrate Redux state for Step 1 to 8 Wizard
+                        if (matchedItem.cartData) {
+                            window.__store.dispatch({
+                                type: 'cartData/setCartFromOrder',
+                                payload: {
+                                    cart: matchedItem.cartData,
+                                    dropped: matchedItem.dropped || matchedItem.droppedItems || []
+                                }
+                            });
+                        }
                         if (matchedItem.quantity) {
                             window.__store.dispatch({
                                 type: 'cartData/increaseQuantity',
                                 payload: { qty: matchedItem.quantity }
                             });
                         }
+                        // Reset Wizard to Step 1 (Panel)
+                        window.__store.dispatch({
+                            type: 'cartData/setActiveStep',
+                            payload: 0
+                        });
 
-                        showNotification('✏️ Editing panel item. Redirecting to editor...', 'info');
+                        showNotification('✏️ Resuming configuration wizard...', 'info');
 
                         setTimeout(() => {
-                            window.location.href = '/Dashboards/userDashboard?cart=' + encodeURIComponent(editId);
+                            window.location.href = '/Dashboards/userDashboard?edit=' + encodeURIComponent(editId);
                         }, 300);
                         return;
                     }
@@ -717,8 +726,7 @@ document.addEventListener('click', function(e) {
                 if (idCell) {
                     const itemId = idCell.textContent.trim();
                     localStorage.setItem('sc_editing_item_id', itemId);
-                    console.log('[CartSync] Fallback set sc_editing_item_id:', itemId);
-                    window.location.href = '/Dashboards/userDashboard?cart=' + encodeURIComponent(itemId);
+                    window.location.href = '/Dashboards/userDashboard?edit=' + encodeURIComponent(itemId);
                 }
             }
         }
