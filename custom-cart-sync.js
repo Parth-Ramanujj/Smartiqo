@@ -1211,22 +1211,12 @@ setInterval(updateHeaderCartBadge, 1000);
 })();
 
 
-// ─── Real-time Panel Configurator Step & Selection Tracker ──────────────────
+// ─── Real-time Panel Configurator Step 1 to 8 Tracker ────────────────────────
 (function() {
     'use strict';
 
     var lastConfigHash = null;
     var debounceTimer = null;
-
-    function formatConfigSummary(cartData) {
-        if (!cartData) return 'None';
-        var parts = [];
-        if (cartData.panel && cartData.panel.item) parts.push('Panel: ' + cartData.panel.item);
-        if (cartData.material && cartData.material.item) parts.push('Material: ' + cartData.material.item);
-        if (cartData.size && cartData.size.item) parts.push('Size: ' + cartData.size.item);
-        if (cartData.technology && cartData.technology.item) parts.push('Tech: ' + cartData.technology.item);
-        return parts.join(' | ') || 'Configuring';
-    }
 
     function sendStepActivity(cartData) {
         try {
@@ -1234,21 +1224,52 @@ setInterval(updateHeaderCartBadge, 1000);
             if (hash === lastConfigHash) return;
             lastConfigHash = hash;
 
-            var summary = formatConfigSummary(cartData);
             var webAppUrl = typeof getWebAppUrl === 'function' ? getWebAppUrl() : '';
+
+            // Extract Step 1 to 8 individual details
+            var step1Panel = cartData.panel ? (cartData.panel.item || '') : '';
+            var step2Mat   = cartData.material ? (cartData.material.item || '') : '';
+            var step3Size  = cartData.size ? (cartData.size.item || '') : '';
+
+            var accessoriesList = [...(cartData.accessories || []), ...(cartData.accessories1 || []), ...(cartData.accessories2 || []), ...(cartData.accessories3 || [])]
+                .flatMap(function(a) { return (a.options || []).map(function(o) { return o.item; }); })
+                .filter(Boolean)
+                .join(', ');
+
+            var droppedArr = Array.isArray(cartData.dropped) ? cartData.dropped : [];
+            var iconNamesList = droppedArr.map(function(ic) { return ic.title || ic.name || ic.id || 'Icon'; }).join(', ');
+            var step5Icons = droppedArr.length > 0 ? (droppedArr.length + ' icons (' + iconNamesList + ')') : '0 icons';
+
+            var colorParts = [];
+            if (Array.isArray(cartData.color)) {
+                cartData.color.forEach(function(c) {
+                    var itemsList = (c.options || []).map(function(o) { return o.item; }).join(', ');
+                    if (itemsList) colorParts.push(c.optionType + ': ' + itemsList);
+                });
+            }
+            var step6Color = colorParts.join(' | ');
+            var step7Tech  = cartData.technology ? (cartData.technology.item || '') : '';
+
+            var payload = {
+                type: 'step_config',
+                step1Panel: step1Panel,
+                step2Mat: step2Mat,
+                step3Size: step3Size,
+                step4Acc: accessoriesList,
+                step5Icons: step5Icons,
+                step6Color: step6Color,
+                step7Tech: step7Tech,
+                step8Status: 'Configuring',
+                details: cartData,
+                webAppUrl: webAppUrl
+            };
 
             fetch('/api/sheet-sync', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'activity',
-                    stepName: 'Panel Configurator',
-                    selection: summary,
-                    details: cartData,
-                    action: 'config_change',
-                    webAppUrl: webAppUrl
-                })
+                body: JSON.stringify(payload)
             }).catch(function(e) {});
+
         } catch(e) {}
     }
 

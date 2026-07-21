@@ -7,64 +7,72 @@
  * ╚══════════════════════════════════════════════════════════════════════════════╝
  *
  * SHEET STRUCTURE (auto-created on first request):
- *  Sheet 1: "Orders"         — Each field stored in its own separate column
- *  Sheet 2: "User Activity"  — Step-by-step user journey tracking
- *  Sheet 3: "Users"          — Login/logout activity
+ *  Sheet 1: "Orders"                  — Full order items with Steps 1-8 in separate columns
+ *  Sheet 2: "Step Configurator Logs"  — Live user journey through Steps 1 to 8 per user
+ *  Sheet 3: "User Activity"           — Step-by-step action log
+ *  Sheet 4: "Users"                   — Login/logout activity per user
  */
 
-// ─── Configuration ─────────────────────────────────────────────────────────────
-var SHEET_NAME_ORDERS   = "Orders";
-var SHEET_NAME_ACTIVITY = "User Activity";
-var SHEET_NAME_USERS    = "Users";
+// ─── Sheet Names ───────────────────────────────────────────────────────────────
+var SHEET_NAME_ORDERS      = "Orders";
+var SHEET_NAME_STEPS       = "Step Configurator Logs";
+var SHEET_NAME_ACTIVITY    = "User Activity";
+var SHEET_NAME_USERS       = "Users";
 
-// ─── ORDERS sheet columns (EVERY FIELD HAS ITS OWN SEPARATE COLUMN) ───────────
+// ─── ORDERS sheet columns (Steps 1 to 8 clearly separated) ─────────────────────
 var ORDER_HEADERS = [
-  "Date",                   // A: Date (DD/MM/YYYY)
-  "Time",                   // B: Time (HH:MM:SS IST)
-  "Order ID",               // C: Unique order identifier (ORD-XXXXXX)
-  "User Email",             // D: User's email address
-  "User Name",              // E: User's display name
-  "Product / Order Name",   // F: Custom product name given by user
-  "Panel Type",             // G: Touch Panel / Edge / Color / etc.
-  "Material",               // H: Glass, Acrylic, Aluminum, Wood, etc.
-  "Size / Module",          // I: 2 Module, 4 Module, 6 Module, 8 Module, etc.
-  "Glass / Panel Color",    // J: Glass or Panel face color
-  "Border / Frame Color",   // K: Edge or border frame color
-  "Button / Icon Color",    // L: Touch button / LED color
-  "Accessories",            // M: Individual accessories selected
-  "Icons Count",            // N: Number of icons placed on panel
-  "Icon Names / Layout",    // O: Names of icons placed on panel
-  "Technology",             // P: Touch, Mechanical, Smart, Zigbee, WiFi, etc.
-  "Quantity",               // Q: Number of units ordered
-  "Unit Price (₹)",         // R: Price per single unit
-  "Total Price (₹)",        // S: Total price (Quantity * Unit Price)
-  "Savings (₹)",            // T: Total savings or discount applied
-  "Status",                 // U: Cart / Confirmed / Processing / Completed
-  "Product Sequence",       // V: Internal product sequence code
-  "Image Preview URL",      // W: Preview image URL / Data URL
-  "Raw JSON Data"           // X: Full raw JSON payload for reference
+  "Date",                       // A
+  "Time",                       // B
+  "User Email",                 // C
+  "User Name",                  // D
+  "Order ID",                   // E
+  "Product / Order Name",       // F
+  "Step 1: Panel",              // G: Touch Panel / Edge / Color
+  "Step 2: Material",           // H: Glass, Acrylic, Aluminum, Wood, etc.
+  "Step 3: Size",               // I: 2 Module, 4 Module, 6 Module, 8 Module, etc.
+  "Step 4: Accessories",        // J: Selected accessories
+  "Step 5: Icons Count",        // K: Number of icons placed
+  "Step 5: Icon Names",         // L: Names of icons placed
+  "Step 6: Glass Color",        // M: Face/glass color
+  "Step 6: Border Color",       // N: Frame/edge color
+  "Step 6: Button Color",       // O: Touch LED/button color
+  "Step 7: Technology",         // P: Zigbee, WiFi, Touch, Smart, etc.
+  "Step 8: Cart Status",        // Q: Cart / Confirmed / Processing
+  "Quantity",                   // R
+  "Unit Price (₹)",             // S
+  "Total Price (₹)",            // T
+  "Savings (₹)",                // U
+  "Product Sequence",           // V
+  "Image Preview URL",          // W
+  "Raw JSON Data"               // X
+];
+
+// ─── STEP CONFIGURATOR LOGS (Steps 1 to 8 Live User Progress) ─────────────────
+var STEP_LOG_HEADERS = [
+  "Date",                       // A
+  "Time",                       // B
+  "User Email",                 // C
+  "User Name",                  // D
+  "Session ID",                 // E
+  "Step 1: Panel",              // F
+  "Step 2: Material",           // G
+  "Step 3: Size",               // H
+  "Step 4: Accessories",        // I
+  "Step 5: Icons",              // J
+  "Step 6: Color",              // K
+  "Step 7: Technology",         // L
+  "Step 8: Cart Status",        // M
+  "Estimated Price (₹)"         // N
 ];
 
 // ─── USER ACTIVITY sheet columns ───────────────────────────────────────────────
 var ACTIVITY_HEADERS = [
-  "Date",         // A
-  "Time",         // B
-  "Session ID",   // C
-  "User Email",   // D
-  "Step Name",    // E: Panel / Material / Size / Accessories / Icons / Color / Tech / Cart
-  "Selection",    // F: What the user selected in this step
-  "Details",      // G: Additional parameters for this selection
-  "Action"        // H: selected / deselected / next / back / add_to_cart
+  "Date", "Time", "Session ID", "User Email", "Step Name", "Selection", "Details", "Action"
 ];
 
 // ─── USERS sheet columns ────────────────────────────────────────────────────────
 var USER_HEADERS = [
-  "Date",         // A
-  "Time",         // B
-  "User Email",   // C
-  "User Name",    // D
-  "Action",       // E: login / logout
-  "Session ID"    // F
+  "Date", "Time", "User Email", "User Name", "Action", "Session ID"
 ];
 
 // ══════════════════════════════════════════════════════════════════════════════════
@@ -97,27 +105,21 @@ function doGet(e) {
       return jsonResponse(rows);
     }
 
-    if (action === "getActivity") {
-      var sheet = getOrCreateSheet(ss, SHEET_NAME_ACTIVITY, ACTIVITY_HEADERS);
+    if (action === "getStepLogs") {
+      var sheet = getOrCreateSheet(ss, SHEET_NAME_STEPS, STEP_LOG_HEADERS);
       var data = sheet.getDataRange().getValues();
       if (data.length <= 1) return jsonResponse([]);
-
       var headers = data[0];
       var rows = [];
       for (var i = 1; i < data.length; i++) {
         var row = {};
-        for (var j = 0; j < headers.length; j++) {
-          row[headers[j]] = data[i][j];
-        }
-        if (!userEmail || row["User Email"] === userEmail) {
-          rows.push(row);
-        }
+        for (var j = 0; j < headers.length; j++) row[headers[j]] = data[i][j];
+        if (!userEmail || row["User Email"] === userEmail) rows.push(row);
       }
       return jsonResponse(rows);
     }
 
     return jsonResponse({ error: "Unknown action: " + action });
-
   } catch(err) {
     return jsonResponse({ error: err.message });
   }
@@ -134,7 +136,12 @@ function doPost(e) {
       return handleOrderData(ss, body);
     }
 
+    if (type === "step_config" || type === "config_change") {
+      return handleStepConfigLog(ss, body);
+    }
+
     if (type === "activity" || type === "step") {
+      handleStepConfigLog(ss, body); // also save to step config
       return handleActivityData(ss, body);
     }
 
@@ -151,8 +158,7 @@ function doPost(e) {
       return handleActivityData(ss, body);
     }
 
-    return jsonResponse({ success: true, message: "Received unrecognized type: " + type });
-
+    return jsonResponse({ success: true, message: "Received type: " + type });
   } catch(err) {
     Logger.log("doPost error: " + err.message);
     return jsonResponse({ success: false, error: err.message });
@@ -160,61 +166,54 @@ function doPost(e) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════
-// HANDLERS (STORE EVERY FIELD IN SEPARATE INDIVIDUAL COLUMNS)
+// HANDLERS (Steps 1 to 8 mapped into separate columns)
 // ══════════════════════════════════════════════════════════════════════════════════
 
 function handleOrderData(ss, body) {
   var sheet = getOrCreateSheet(ss, SHEET_NAME_ORDERS, ORDER_HEADERS);
 
-  var nowObj = new Date();
+  var nowObj  = new Date();
   var dateStr = nowObj.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
   var timeStr = nowObj.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" });
 
-  var orderId     = body.orderId     || body.order_id     || ("ORD-" + Date.now());
   var userEmail   = body.userEmail   || body.user_email   || body.email   || "";
   var userName    = body.userName    || body.user_name    || body.name    || "";
+  var orderId     = body.orderId     || body.order_id     || ("ORD-" + Date.now());
   var productName = body.customName  || body.orderName    || body.itemName || "Custom Switch Panel";
 
-  // Individual Panel Configurations in Separate Fields
-  var panelType   = body.panel       || body.panelType    || getProp(body, "cartData.panel.item")    || "";
-  var material    = body.material    || body.materialType || getProp(body, "cartData.material.item") || "";
-  var size        = body.size        || body.sizeModule   || getProp(body, "cartData.size.item")     || "";
+  // Step 1 to 8 Individual Values
+  var step1Panel  = body.panel       || body.panelType    || getProp(body, "cartData.panel.item")    || "";
+  var step2Mat    = body.material    || body.materialType || getProp(body, "cartData.material.item") || "";
+  var step3Size   = body.size        || body.sizeModule   || getProp(body, "cartData.size.item")     || "";
+  var step4Acc    = body.accessories || extractAccessories(body) || "";
+  var step5Count  = body.iconsCount  || extractIconsCount(body)  || "0";
+  var step5Names  = body.iconNames   || extractIconNames(body)   || "";
+  var step6Glass  = body.glassColor  || body.panelColor   || extractColorByType(body, ["glass", "panel", "face"])  || "";
+  var step6Border = body.frameColor  || body.borderColor  || extractColorByType(body, ["border", "frame", "edge"]) || "";
+  var step6Button = body.buttonColor || body.iconColor   || extractColorByType(body, ["button", "icon", "touch"]) || "";
+  var step7Tech   = body.technology  || body.techType     || getProp(body, "cartData.technology.item") || "";
+  var step8Status = body.status      || (body.isOrderConfirmation ? "Confirmed" : "In Cart");
 
-  // Separate Colors (Glass, Frame, Button)
-  var glassColor  = body.glassColor  || body.panelColor   || extractColorByType(body, ["glass", "panel", "face"])  || "";
-  var frameColor  = body.frameColor  || body.borderColor  || extractColorByType(body, ["border", "frame", "edge"]) || "";
-  var buttonColor = body.buttonColor || body.iconColor   || extractColorByType(body, ["button", "icon", "touch"]) || "";
-
-  // Accessories & Icons
-  var accessories = body.accessories || extractAccessories(body) || "";
-  var iconsCount  = body.iconsCount  || extractIconsCount(body)  || "0";
-  var iconNames   = body.iconNames   || extractIconNames(body)   || "";
-
-  // Technology & Pricing
-  var technology  = body.technology  || body.techType     || getProp(body, "cartData.technology.item") || "";
   var quantity    = body.quantity    || body.qty          || 1;
   var unitPrice   = body.unitPrice   || body.unit_price   || "";
   var totalPrice  = body.totalPrice  || body.priceFormatted || body.price || "";
   var savings     = body.savings     || "₹ 0.00";
-  var status      = body.status      || (body.isOrderConfirmation ? "Confirmed" : "Cart");
   var productSeq  = body.productSequence || body.productId || "";
   var imageUrl    = body.imagePreview|| body.preview      || "";
 
   var rawJson = "";
   try { rawJson = JSON.stringify(body); } catch(e) { rawJson = ""; }
 
-  // Array formatting to clean strings
-  if (Array.isArray(accessories)) accessories = accessories.join(", ");
-  if (Array.isArray(iconNames))   iconNames   = iconNames.join(", ");
+  if (Array.isArray(step4Acc))   step4Acc   = step4Acc.join(", ");
+  if (Array.isArray(step5Names)) step5Names = step5Names.join(", ");
 
   var rowData = [
-    dateStr, timeStr, orderId, userEmail, userName, productName,
-    panelType, material, size, glassColor, frameColor, buttonColor,
-    accessories, iconsCount, iconNames, technology, quantity,
-    unitPrice, totalPrice, savings, status, productSeq, imageUrl, rawJson
+    dateStr, timeStr, userEmail, userName, orderId, productName,
+    step1Panel, step2Mat, step3Size, step4Acc, step5Count, step5Names,
+    step6Glass, step6Border, step6Button, step7Tech, step8Status,
+    quantity, unitPrice, totalPrice, savings, productSeq, imageUrl, rawJson
   ];
 
-  // Update existing row if orderId + productName match, otherwise append
   var existingRow = findExistingRow(sheet, orderId, productName);
   if (existingRow > 0) {
     sheet.getRange(existingRow, 1, 1, rowData.length).setValues([rowData]);
@@ -226,6 +225,36 @@ function handleOrderData(ss, body) {
 
   autoFormatSheet(sheet);
   return jsonResponse({ success: true, orderId: orderId, action: existingRow > 0 ? "updated" : "created" });
+}
+
+function handleStepConfigLog(ss, body) {
+  var sheet = getOrCreateSheet(ss, SHEET_NAME_STEPS, STEP_LOG_HEADERS);
+
+  var nowObj    = new Date();
+  var dateStr   = nowObj.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
+  var timeStr   = nowObj.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" });
+  var userEmail = body.userEmail   || body.user_email  || body.email || "";
+  var userName  = body.userName    || body.user_name   || body.name  || "";
+  var sessionId = body.sessionId   || body.session_id  || "";
+
+  var cartData  = body.cartData    || body.details     || {};
+  var step1     = body.step1Panel  || getProp(cartData, "panel.item")      || "";
+  var step2     = body.step2Mat    || getProp(cartData, "material.item")   || "";
+  var step3     = body.step3Size   || getProp(cartData, "size.item")       || "";
+  var step4     = body.step4Acc    || extractAccessories({ cartData: cartData }) || "";
+  var step5     = body.step5Icons  || extractIconNames({ cartData: cartData })   || "";
+  var step6     = body.step6Color  || extractColorByType({ cartData: cartData }, ["glass", "panel", "border"]) || "";
+  var step7     = body.step7Tech   || getProp(cartData, "technology.item") || "";
+  var step8     = body.step8Status || body.status || "Configuring";
+  var price     = body.totalPrice  || body.priceFormatted || "";
+
+  sheet.appendRow([
+    dateStr, timeStr, userEmail, userName, sessionId,
+    step1, step2, step3, step4, step5, step6, step7, step8, price
+  ]);
+
+  autoFormatSheet(sheet);
+  return jsonResponse({ success: true });
 }
 
 function handleActivityData(ss, body) {
@@ -274,15 +303,17 @@ function extractColorByType(body, keywords) {
     if (typeof body.colors === "string" && body.colors) return body.colors;
 
     if (Array.isArray(colors)) {
+      var matched = [];
       for (var i = 0; i < colors.length; i++) {
         var optType = (colors[i].optionType || "").toLowerCase();
         for (var k = 0; k < keywords.length; k++) {
           if (optType.indexOf(keywords[k]) !== -1) {
             var opts = colors[i].options || [];
-            return opts.map(function(o) { return o.item; }).join(", ");
+            matched.push(opts.map(function(o) { return o.item; }).join(", "));
           }
         }
       }
+      return matched.join(" | ");
     }
   } catch(e) {}
   return "";
@@ -323,11 +354,10 @@ function getOrCreateSheet(ss, name, headers) {
     headerRange.setFontColor("#ffffff");
     sheet.setFrozenRows(1);
     for (var i = 1; i <= headers.length; i++) {
-      sheet.setColumnWidth(i, 160);
+      sheet.setColumnWidth(i, 150);
     }
-    Logger.log("Created sheet with separate columns: " + name);
+    Logger.log("Created sheet: " + name);
   } else {
-    // Ensure header row matches latest headers
     var currentHeader = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
     if (currentHeader[0] !== headers[0] || currentHeader.length < headers.length) {
       sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -340,7 +370,7 @@ function getOrCreateSheet(ss, name, headers) {
 function findExistingRow(sheet, orderId, productName) {
   var data = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][2]) === String(orderId) && String(data[i][5]) === String(productName)) {
+    if (String(data[i][4]) === String(orderId) && String(data[i][5]) === String(productName)) {
       return i + 1;
     }
   }
