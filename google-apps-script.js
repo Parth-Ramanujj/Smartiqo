@@ -7,7 +7,7 @@
  * ╚══════════════════════════════════════════════════════════════════════════════╝
  *
  * SHEET STRUCTURE (auto-created on first request):
- *  Sheet 1: "Orders"                  — Full order items with Steps 1-8 in separate columns
+ *  Sheet 1: "Orders"                  — Full order items (deletes row when item removed from cart)
  *  Sheet 2: "Step Configurator Logs"  — Live user journey through Steps 1 to 8 per user
  *  Sheet 3: "User Activity"           — Step-by-step action log
  *  Sheet 4: "Users"                   — Login/logout activity per user
@@ -21,48 +21,37 @@ var SHEET_NAME_USERS       = "Users";
 
 // ─── ORDERS sheet columns (Steps 1 to 8 clearly separated) ─────────────────────
 var ORDER_HEADERS = [
-  "Date",                       // A
-  "Time",                       // B
-  "User Email",                 // C
-  "User Name",                  // D
-  "Order ID",                   // E
-  "Product / Order Name",       // F
-  "Step 1: Panel",              // G: Touch Panel / Edge / Color
-  "Step 2: Material",           // H: Glass, Acrylic, Aluminum, Wood, etc.
-  "Step 3: Size",               // I: 2 Module, 4 Module, 6 Module, 8 Module, etc.
-  "Step 4: Accessories",        // J: Selected accessories
-  "Step 5: Icons Count",        // K: Number of icons placed
-  "Step 5: Icon Names",         // L: Names of icons placed
-  "Step 6: Glass Color",        // M: Face/glass color
-  "Step 6: Border Color",       // N: Frame/edge color
-  "Step 6: Button Color",       // O: Touch LED/button color
-  "Step 7: Technology",         // P: Zigbee, WiFi, Touch, Smart, etc.
-  "Step 8: Cart Status",        // Q: Cart / Confirmed / Processing
-  "Quantity",                   // R
-  "Unit Price (₹)",             // S
-  "Total Price (₹)",            // T
-  "Savings (₹)",                // U
-  "Product Sequence",           // V
-  "Image Preview URL",          // W
-  "Raw JSON Data"               // X
+  "Date",                       // A (index 0)
+  "Time",                       // B (index 1)
+  "User Email",                 // C (index 2)
+  "User Name",                  // D (index 3)
+  "Order ID",                   // E (index 4)
+  "Product / Order Name",       // F (index 5)
+  "Step 1: Panel",              // G (index 6)
+  "Step 2: Material",           // H (index 7)
+  "Step 3: Size",               // I (index 8)
+  "Step 4: Accessories",        // J (index 9)
+  "Step 5: Icons Count",        // K (index 10)
+  "Step 5: Icon Names",         // L (index 11)
+  "Step 6: Glass Color",        // M (index 12)
+  "Step 6: Border Color",       // N (index 13)
+  "Step 6: Button Color",       // O (index 14)
+  "Step 7: Technology",         // P (index 15)
+  "Step 8: Cart Status",        // Q (index 16)
+  "Quantity",                   // R (index 17)
+  "Unit Price (₹)",             // S (index 18)
+  "Total Price (₹)",            // T (index 19)
+  "Savings (₹)",                // U (index 20)
+  "Product Sequence",           // V (index 21)
+  "Image Preview URL",          // W (index 22)
+  "Raw JSON Data"               // X (index 23)
 ];
 
 // ─── STEP CONFIGURATOR LOGS (Steps 1 to 8 Live User Progress) ─────────────────
 var STEP_LOG_HEADERS = [
-  "Date",                       // A
-  "Time",                       // B
-  "User Email",                 // C
-  "User Name",                  // D
-  "Session ID",                 // E
-  "Step 1: Panel",              // F
-  "Step 2: Material",           // G
-  "Step 3: Size",               // H
-  "Step 4: Accessories",        // I
-  "Step 5: Icons",              // J
-  "Step 6: Color",              // K
-  "Step 7: Technology",         // L
-  "Step 8: Cart Status",        // M
-  "Estimated Price (₹)"         // N
+  "Date", "Time", "User Email", "User Name", "Session ID",
+  "Step 1: Panel", "Step 2: Material", "Step 3: Size", "Step 4: Accessories",
+  "Step 5: Icons", "Step 6: Color", "Step 7: Technology", "Step 8: Cart Status", "Estimated Price (₹)"
 ];
 
 // ─── USER ACTIVITY sheet columns ───────────────────────────────────────────────
@@ -132,6 +121,16 @@ function doPost(e) {
 
     var ss = SpreadsheetApp.getActiveSpreadsheet();
 
+    // DELETE ITEM FROM CART (deletes row from Google Sheet)
+    if (type === "delete_item" || type === "remove_from_cart" || type === "delete_order") {
+      return handleDeleteItem(ss, body);
+    }
+
+    // CLEAR ENTIRE CART
+    if (type === "clear_cart" || type === "clear_all_cart") {
+      return handleClearCart(ss, body);
+    }
+
     if (type === "order" || type === "cart") {
       return handleOrderData(ss, body);
     }
@@ -141,7 +140,7 @@ function doPost(e) {
     }
 
     if (type === "activity" || type === "step") {
-      handleStepConfigLog(ss, body); // also save to step config
+      handleStepConfigLog(ss, body);
       return handleActivityData(ss, body);
     }
 
@@ -166,7 +165,66 @@ function doPost(e) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════
-// HANDLERS (Steps 1 to 8 mapped into separate columns)
+// DELETE ITEM / CLEAR CART HANDLERS (DELETES ROW FROM GOOGLE SHEET)
+// ══════════════════════════════════════════════════════════════════════════════════
+
+function handleDeleteItem(ss, body) {
+  var sheet = getOrCreateSheet(ss, SHEET_NAME_ORDERS, ORDER_HEADERS);
+
+  var orderId     = body.orderId     || body.order_id     || body.id || "";
+  var userEmail   = body.userEmail   || body.user_email   || body.email || "";
+  var productName = body.customName  || body.productName  || body.orderName || body.itemName || "";
+
+  var data = sheet.getDataRange().getValues();
+  var deletedCount = 0;
+
+  // Search from bottom to top so row index remains accurate during deletion
+  for (var i = data.length - 1; i >= 1; i--) {
+    var rowOrderId   = String(data[i][4] || ""); // Col E: Order ID
+    var rowUserEmail = String(data[i][2] || ""); // Col C: User Email
+    var rowProdName  = String(data[i][5] || ""); // Col F: Product Name
+
+    var isMatch = false;
+    if (orderId && rowOrderId === String(orderId)) {
+      isMatch = true;
+    } else if (userEmail && productName && rowUserEmail === String(userEmail) && rowProdName === String(productName)) {
+      isMatch = true;
+    }
+
+    if (isMatch) {
+      sheet.deleteRow(i + 1); // 1-indexed row number
+      deletedCount++;
+      Logger.log("Deleted row " + (i + 1) + " for orderId: " + orderId + " (" + productName + ")");
+    }
+  }
+
+  return jsonResponse({ success: true, deletedCount: deletedCount, orderId: orderId });
+}
+
+function handleClearCart(ss, body) {
+  var sheet = getOrCreateSheet(ss, SHEET_NAME_ORDERS, ORDER_HEADERS);
+  var userEmail = body.userEmail || body.user_email || body.email || "";
+
+  var data = sheet.getDataRange().getValues();
+  var deletedCount = 0;
+
+  for (var i = data.length - 1; i >= 1; i--) {
+    var rowUserEmail = String(data[i][2] || ""); // Col C: User Email
+    var rowStatus    = String(data[i][16] || ""); // Col Q: Step 8 / Cart Status
+
+    if (!userEmail || rowUserEmail === String(userEmail)) {
+      if (rowStatus.indexOf("Cart") !== -1 || rowStatus.indexOf("Configuring") !== -1) {
+        sheet.deleteRow(i + 1);
+        deletedCount++;
+      }
+    }
+  }
+
+  return jsonResponse({ success: true, deletedCount: deletedCount, userEmail: userEmail });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════
+// ORDER & ACTIVITY HANDLERS
 // ══════════════════════════════════════════════════════════════════════════════════
 
 function handleOrderData(ss, body) {
@@ -181,7 +239,6 @@ function handleOrderData(ss, body) {
   var orderId     = body.orderId     || body.order_id     || ("ORD-" + Date.now());
   var productName = body.customName  || body.orderName    || body.itemName || "Custom Switch Panel";
 
-  // Step 1 to 8 Individual Values
   var step1Panel  = body.panel       || body.panelType    || getProp(body, "cartData.panel.item")    || "";
   var step2Mat    = body.material    || body.materialType || getProp(body, "cartData.material.item") || "";
   var step3Size   = body.size        || body.sizeModule   || getProp(body, "cartData.size.item")     || "";

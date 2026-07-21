@@ -1296,3 +1296,125 @@ setInterval(updateHeaderCartBadge, 1000);
         setTimeout(watchConfiguratorState, 1500);
     }
 })();
+
+
+// ─── Real-time Cart Item Deletion & Sync to Google Sheets ────────────────────
+(function() {
+    'use strict';
+
+    var knownCartItems = {}; // { itemKey -> itemObj }
+    var isInitialized = false;
+
+    function getItemKey(item) {
+        if (!item) return '';
+        return item.orderId || item.id || item.productSequence || (item.customProductName + '_' + (item.totalPrice || 0));
+    }
+
+    function notifyServerAndDeleteFromGAS(removedItem) {
+        try {
+            var webAppUrl = typeof getWebAppUrl === 'function' ? getWebAppUrl() : '';
+            var payload = {
+                type: 'delete_item',
+                orderId: removedItem.orderId || removedItem.id || '',
+                productId: removedItem.productSequence || removedItem.id || '',
+                customName: removedItem.customProductName || removedItem.orderName || removedItem.itemName || '',
+                webAppUrl: webAppUrl
+            };
+
+            console.log('[CartSync] Item removed from cart! Deleting from Google Sheet & server:', payload);
+
+            // 1. Send delete request to local server (/api/sheet-sync)
+            fetch('/api/sheet-sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).catch(function(e) {});
+
+            // 2. Direct fetch to Google Apps Script
+            if (webAppUrl && webAppUrl.startsWith('http')) {
+                fetch(webAppUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                    body: JSON.stringify(payload)
+                }).catch(function(e) {});
+            }
+        } catch(e) {
+            console.warn('[CartSync] Error notifying server of item deletion:', e);
+        }
+    }
+
+    function notifyClearCartFromGAS() {
+        try {
+            var webAppUrl = typeof getWebAppUrl === 'function' ? getWebAppUrl() : '';
+            var payload = { type: 'clear_cart', webAppUrl: webAppUrl };
+
+            console.log('[CartSync] Cart cleared! Deleting all cart rows from Google Sheet & server');
+
+            fetch('/api/sheet-sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).catch(function(e) {});
+
+            if (webAppUrl && webAppUrl.startsWith('http')) {
+                fetch(webAppUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                    body: JSON.stringify(payload)
+                }).catch(function(e) {});
+            }
+        } catch(e) {}
+    }
+
+    function checkCartDeletions() {
+        try {
+            if (typeof getCartItemsFromRedux !== 'function') return;
+            var currentItems = getCartItemsFromRedux() || [];
+            var currentKeysMap = {};
+
+            currentItems.forEach(function(item) {
+                var key = getItemKey(item);
+                if (key) currentKeysMap[key] = item;
+            });
+
+            if (!isInitialized) {
+                knownCartItems = currentKeysMap;
+                isInitialized = true;
+                return;
+            }
+
+            // Check if any previously known item is no longer in current cart
+            var knownKeys = Object.keys(knownCartItems);
+            knownKeys.forEach(function(key) {
+                if (!currentKeysMap[key]) {
+                    var removedItem = knownCartItems[key];
+                    delete knownCartItems[key];
+                    notifyServerAndDeleteFromGAS(removedItem);
+                }
+            });
+
+            // Update known items map with current items
+            knownCartItems = currentKeysMap;
+
+        } catch(e) {}
+    }
+
+    // Check for deleted items every 1.5s
+    setInterval(checkCartDeletions, 1500);
+
+    // Also attach global hook for clear cart buttons
+    document.addEventListener('click', function(e) {
+        var target = e.target;
+        if (!target) return;
+        var btn = target.closest('button, a, [role="button"]');
+        if (btn) {
+            var txt = (btn.textContent || '').toLowerCase();
+            var aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+            if (txt.includes('clear cart') || txt.includes('delete all') || aria.includes('clear cart')) {
+                setTimeout(notifyClearCartFromGAS, 300);
+            }
+        }
+    }, true);
+})();
