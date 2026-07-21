@@ -1,4 +1,5 @@
 {
   "port": 8080,
-  "host": "0.0.0.0"
+  "host": "0.0.0.0",
+  "googleSheetDocUrl": "https://docs.google.com/spreadsheets/d/1pQ85rMRXLC-06FhKCdt7Q4o5EHLos2ZxL7XvhCCfGjY/edit?pli=1&gid=692857449#gid=692857449"
 }

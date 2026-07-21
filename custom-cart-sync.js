@@ -844,7 +844,7 @@ function checkAndInjectProfileInput() {
 
 // ─── Orders/Cart page: Show synced rows from Google Sheet ────────────────────
 function getGoogleSheetDocUrl() {
-    return localStorage.getItem('googleSheetDocUrl') || 'https://docs.google.com/spreadsheets/';
+    return localStorage.getItem('googleSheetDocUrl') || 'https://docs.google.com/spreadsheets/d/1pQ85rMRXLC-06FhKCdt7Q4o5EHLos2ZxL7XvhCCfGjY/edit?pli=1&gid=692857449#gid=692857449';
 }
 
 function extractRowField(row, possibleKeys) {
