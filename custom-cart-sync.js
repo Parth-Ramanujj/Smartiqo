@@ -1879,6 +1879,143 @@ body,.MuiTypography-root,.MuiButton-root,input,select,textarea{
 ::-webkit-scrollbar-thumb{background:rgba(25,118,210,.28);border-radius:99px;}
 ::-webkit-scrollbar-thumb:hover{background:rgba(25,118,210,.55);}
 
+
+/* ══════════════════════════════════════════════════════════════════════
+   STEPPER PROGRESS BAR & STEP LABELS — ENHANCED UI/UX POLISH
+   Fixes: Clipped top labels, alignment, line positioning, icon checkmarks
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Stepper main container - add generous top padding so top labels are never clipped */
+.MuiStepper-root,
+[class*="MuiStepper-root"],
+.MuiStepper-horizontal {
+  padding-top: 38px !important;
+  padding-bottom: 20px !important;
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+  overflow: visible !important;
+  position: relative !important;
+  align-items: center !important;
+}
+
+/* Ensure parent containers of Stepper do not clip top labels */
+.MuiStepper-root *,
+[class*="MuiStepper"] * {
+  overflow: visible !important;
+}
+
+/* Individual step container */
+.MuiStep-root,
+[class*="MuiStep-root"] {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  cursor: pointer !important;
+  position: relative !important;
+}
+
+/* Step Label root */
+.MuiStepLabel-root,
+[class*="MuiStepLabel-root"] {
+  cursor: pointer !important;
+  position: relative !important;
+}
+
+/* Icon container */
+.MuiStepLabel-iconContainer,
+[class*="MuiStepLabel-iconContainer"] {
+  z-index: 2 !important;
+  padding-right: 0 !important;
+  cursor: pointer !important;
+}
+
+/* Step SVG Icons (Numbers & Checkmarks) */
+.MuiStepIcon-root,
+svg[class*="MuiStepIcon-root"] {
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: 50% !important;
+  transition: transform 0.22s cubic-bezier(0.4,0,0.2,1),
+              filter 0.22s cubic-bezier(0.4,0,0.2,1),
+              box-shadow 0.22s cubic-bezier(0.4,0,0.2,1) !important;
+}
+
+/* Active Step Icon */
+.MuiStepIcon-root.Mui-active,
+svg[class*="MuiStepIcon-root"][class*="active"] {
+  color: #1976d2 !important;
+  transform: scale(1.15) !important;
+  filter: drop-shadow(0 4px 10px rgba(25,118,210,0.40)) !important;
+}
+
+/* Completed Step Icon (Checkmark) */
+.MuiStepIcon-root.Mui-completed,
+svg[class*="MuiStepIcon-root"][class*="completed"] {
+  color: #1976d2 !important;
+  filter: drop-shadow(0 2px 6px rgba(25,118,210,0.25)) !important;
+}
+
+/* Hover over step icon */
+.MuiStep-root:hover .MuiStepIcon-root {
+  transform: scale(1.18) !important;
+}
+
+/* Connector Line connecting steps */
+.MuiStepConnector-root,
+[class*="MuiStepConnector-root"] {
+  top: 15px !important;
+  left: calc(-50% + 15px) !important;
+  right: calc(50% + 15px) !important;
+  position: absolute !important;
+}
+
+.MuiStepConnector-line,
+[class*="MuiStepConnector-line"] {
+  border-top-width: 3px !important;
+  border-radius: 99px !important;
+  border-color: #e0e0e0 !important;
+  transition: border-color 0.35s ease !important;
+}
+
+.MuiStepConnector-root.Mui-active .MuiStepConnector-line,
+.MuiStepConnector-root.Mui-completed .MuiStepConnector-line {
+  border-color: #1976d2 !important;
+}
+
+/* Step Label Text (Below & Above) */
+.MuiStepLabel-label,
+[class*="MuiStepLabel-label"] {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #4b5563 !important;
+  margin-top: 8px !important;
+  transition: color 0.2s ease, font-weight 0.2s ease !important;
+  text-align: center !important;
+  line-height: 1.3 !important;
+}
+
+.MuiStepLabel-label.Mui-active,
+[class*="MuiStepLabel-label"][class*="active"] {
+  color: #1976d2 !important;
+  font-weight: 700 !important;
+}
+
+.MuiStepLabel-label.Mui-completed,
+[class*="MuiStepLabel-label"][class*="completed"] {
+  color: #1e293b !important;
+  font-weight: 600 !important;
+}
+
+.MuiStep-root:hover .MuiStepLabel-label {
+  color: #1976d2 !important;
+}
+
+/* Fix any top label sub-text positioning so it stays nicely above the circle without getting cut off */
+[class*="MuiStepLabel"] > div,
+[class*="MuiStepLabel"] span {
+  overflow: visible !important;
+}
+
 /* ── RESPONSIVE ──────────────────────────────────────────────────── */
 @media(max-width:768px){
   .MuiButton-root{min-height:42px!important;font-size:14px!important;}
