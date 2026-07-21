@@ -443,6 +443,9 @@ class CORSHandler(SimpleHTTPRequestHandler):
         if parsed_path.rstrip("/") == "/api/cart" or parsed_path.startswith("/api/cart/"):
             self._handle_cart_api("POST")
             return
+        if parsed_path.rstrip("/") in ("/api/user-orders", "/api/my-orders"):
+            self._handle_user_orders_api("POST")
+            return
         if parsed_path.rstrip("/") == "/api/sheet-sync":
             self._handle_sheet_sync("POST")
             return
@@ -452,6 +455,9 @@ class CORSHandler(SimpleHTTPRequestHandler):
         parsed_path = urllib.parse.urlparse(self.path).path
         if parsed_path.rstrip("/") == "/api/cart" or parsed_path.startswith("/api/cart/"):
             self._handle_cart_api("PUT")
+            return
+        if parsed_path.rstrip("/") in ("/api/user-orders", "/api/my-orders"):
+            self._handle_user_orders_api("PUT")
             return
         if parsed_path.rstrip("/") == "/api/sheet-sync":
             self._handle_sheet_sync("PUT")
@@ -472,6 +478,9 @@ class CORSHandler(SimpleHTTPRequestHandler):
         parsed_path = urllib.parse.urlparse(self.path).path
         if parsed_path.rstrip("/") == "/api/cart" or parsed_path.startswith("/api/cart/"):
             self._handle_cart_api("DELETE")
+            return
+        if parsed_path.rstrip("/") in ("/api/user-orders", "/api/my-orders"):
+            self._handle_user_orders_api("DELETE")
             return
         path = self.path
         if self.path.startswith("/api/"):
@@ -696,6 +705,99 @@ class CORSHandler(SimpleHTTPRequestHandler):
 
         self._send_json(200, result)
 
+    def _handle_user_orders_api(self, method):
+        """
+        Permanent File-Based Order Storage (No Database Required).
+        Stores orders per-user on disk: DIR/orders-data/users/<user_email>.json
+        Survives browser cache clears, server restarts, and machine reboots.
+        """
+        user = self._get_current_user()
+        if not user:
+            self._send_json(401, {"error": "Not authenticated"})
+            return
+
+        email = user.get("email", "").strip().lower()
+        import re
+        safe_email = re.sub(r'[^a-zA-Z0-9@._-]', '_', email)[:64]
+
+        USER_ORDERS_DIR = DIR / "orders-data" / "users"
+        USER_ORDERS_DIR.mkdir(parents=True, exist_ok=True)
+        user_orders_file = USER_ORDERS_DIR / f"{safe_email}.json"
+
+        if method == "GET":
+            orders = []
+            if user_orders_file.exists():
+                try:
+                    with open(user_orders_file, "r", encoding="utf-8") as f:
+                        orders = json.load(f)
+                except Exception as e:
+                    logger.warning("Error reading user orders file: %s", e)
+            self._send_json(200, {"orders": orders, "userEmail": email, "count": len(orders)})
+            return
+
+        if method in ("POST", "PUT"):
+            body = self._read_body()
+            try:
+                data = json.loads(body)
+            except Exception as e:
+                self._send_json(400, {"error": "Invalid JSON: " + str(e)})
+                return
+
+            orders = []
+            if user_orders_file.exists():
+                try:
+                    with open(user_orders_file, "r", encoding="utf-8") as f:
+                        orders = json.load(f)
+                except Exception:
+                    orders = []
+
+            order_item = data.get("order") or data
+            order_item["userEmail"] = email
+            order_item["createdAt"] = __import__("datetime").datetime.utcnow().isoformat()
+
+            oid = order_item.get("orderId") or order_item.get("id")
+            if oid:
+                orders = [o for o in orders if (o.get("orderId") or o.get("id")) != oid]
+
+            orders.insert(0, order_item)
+
+            try:
+                with open(user_orders_file, "w", encoding="utf-8") as f:
+                    json.dump(orders, f, ensure_ascii=False, indent=2)
+                logger.info("Permanently saved order %s for user %s", oid, email)
+                self._send_json(200, {"success": True, "orders": orders})
+            except Exception as e:
+                self._send_json(500, {"error": str(e)})
+            return
+
+        if method == "DELETE":
+            parsed = urllib.parse.urlparse(self.path)
+            query = urllib.parse.parse_qs(parsed.query)
+            oid = query.get("orderId", [""])[0] or query.get("id", [""])[0]
+
+            orders = []
+            if user_orders_file.exists():
+                try:
+                    with open(user_orders_file, "r", encoding="utf-8") as f:
+                        orders = json.load(f)
+                except Exception:
+                    orders = []
+
+            if oid:
+                orders = [o for o in orders if (o.get("orderId") or o.get("id")) != oid]
+            else:
+                orders = []
+
+            try:
+                with open(user_orders_file, "w", encoding="utf-8") as f:
+                    json.dump(orders, f, ensure_ascii=False, indent=2)
+                self._send_json(200, {"success": True, "orders": orders})
+            except Exception as e:
+                self._send_json(500, {"error": str(e)})
+            return
+
+        self._send_json(405, {"error": "Method not allowed"})
+
     def _handle_orders_data_get(self):
         """Return all locally-saved order records as JSON list."""
         user = self._get_current_user()
@@ -795,6 +897,9 @@ class CORSHandler(SimpleHTTPRequestHandler):
             parsed_path = urllib.parse.urlparse(self.path).path
             if parsed_path.rstrip("/") == "/api/cart" or parsed_path.startswith("/api/cart/"):
                 self._handle_cart_api("GET")
+                return
+            if parsed_path.rstrip("/") in ("/api/user-orders", "/api/my-orders"):
+                self._handle_user_orders_api("GET")
                 return
             if parsed_path.rstrip("/") == "/api/orders-data":
                 self._handle_orders_data_get()

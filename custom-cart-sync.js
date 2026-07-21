@@ -318,7 +318,13 @@ function buildFullItemPayload(item, orderId, isOrderConfirmation) {
 // ─── Send a SINGLE object payload to Google Apps Script ───────────────────────
 function sendSinglePayloadToGAS(payloadObj) {
     const url = getWebAppUrl();
-    console.log('[CartSync] Sending payload to server & Google Sheets:', payloadObj.orderId);
+    console.log('[CartSync] Permanently saving order to file storage & Google Sheets:', payloadObj.orderId);
+    // Post to permanent user file storage endpoint (/api/user-orders)
+    fetch('/api/user-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloadObj)
+    }).catch(function(e) {});
 
     try {
         const localOrders = JSON.parse(localStorage.getItem('sc_local_orders') || '[]');
@@ -903,6 +909,7 @@ function checkAndInjectOrdersView() {
     // Fetch from both Google Apps Script and local server (/api/orders-data)
     Promise.allSettled([
         fetch(gasUrl).then(r => r.json()),
+        fetch('/api/user-orders').then(r => r.json().then(d => d.orders || d)),
         fetch('/api/orders-data').then(r => r.json())
     ]).then(results => {
         let gasRows = results[0].status === 'fulfilled' && Array.isArray(results[0].value) ? results[0].value : [];
