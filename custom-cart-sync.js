@@ -889,6 +889,15 @@ function checkAndInjectOrdersView() {
     if (!isTargetPage) return;
     if (document.getElementById('custom-orders-view')) return;
 
+    // Get current logged-in user email
+    let currentUserEmail = (typeof getUserId === 'function' ? getUserId() : '').trim().toLowerCase();
+    if (!currentUserEmail && window.__store) {
+        try {
+            const state = window.__store.getState();
+            currentUserEmail = (state.loginSignUpSlice?.userEmail || state.user?.email || '').trim().toLowerCase();
+        } catch(e) {}
+    }
+
     const container = document.createElement('div');
     container.id = 'custom-orders-view';
     container.style.cssText = `
@@ -896,7 +905,7 @@ function checkAndInjectOrdersView() {
         background: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.07); border-radius: 16px;
         border: 1px solid rgba(25, 118, 210, 0.12); font-family: 'Inter', sans-serif;
     `;
-    container.innerHTML = `<p style="color:#6B7280;font-size:14px;margin:0;">⏳ Fetching user-specific records from Google Sheet...</p>`;
+    container.innerHTML = `<p style="color:#6B7280;font-size:14px;margin:0;">⏳ Fetching orders for ${currentUserEmail || 'your account'}...</p>`;
 
     const targetParent = document.querySelector('main') || document.querySelector('.MuiContainer-root') || document.body;
     if (targetParent.firstChild) {
@@ -905,31 +914,34 @@ function checkAndInjectOrdersView() {
         targetParent.appendChild(container);
     }
 
-    const currentUserEmail = (typeof getUserId === 'function' ? getUserId() : '').trim().toLowerCase();
-
-    // Construct URL for GAS with email filter if available
+    // Construct URL for GAS with email filter
     let gasUrl = getWebAppUrl();
     if (currentUserEmail && gasUrl && gasUrl.startsWith('http')) {
         const sep = gasUrl.includes('?') ? '&' : '?';
         gasUrl = gasUrl + sep + 'action=getOrders&email=' + encodeURIComponent(currentUserEmail);
     }
 
-    // Fetch from both Google Apps Script and local server (/api/orders-data)
+    // Fetch from Google Apps Script and local user storage
     Promise.allSettled([
         fetch(gasUrl).then(r => r.json()),
         fetch('/api/user-orders').then(r => r.json().then(d => d.orders || d)),
         fetch('/api/orders-data').then(r => r.json())
     ]).then(results => {
         let gasRows = results[0].status === 'fulfilled' && Array.isArray(results[0].value) ? results[0].value : [];
-        let localRows = results[1].status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value : [];
+        let userFileRows = results[1].status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value : [];
+        let allLocalRows = results[2].status === 'fulfilled' && Array.isArray(results[2].value) ? results[2].value : [];
 
         // Combine all rows
         let combinedMap = {};
-        gasRows.forEach((r, i) => {
-            let key = extractRowField(r, ['Cart / Order ID', 'Order ID', 'orderId', 'id']) || ('gas_' + i);
+        userFileRows.forEach((r, i) => {
+            let key = extractRowField(r, ['Cart / Order ID', 'Order ID', 'orderId', 'id']) || ('uf_' + i);
             combinedMap[key] = r;
         });
-        localRows.forEach((r, i) => {
+        gasRows.forEach((r, i) => {
+            let key = extractRowField(r, ['Cart / Order ID', 'Order ID', 'orderId', 'id']) || ('gas_' + i);
+            if (!combinedMap[key]) combinedMap[key] = r;
+        });
+        allLocalRows.forEach((r, i) => {
             let key = extractRowField(r, ['Cart / Order ID', 'Order ID', 'orderId', 'id']) || ('loc_' + i);
             if (!combinedMap[key]) combinedMap[key] = r;
         });
@@ -960,12 +972,14 @@ function checkAndInjectOrdersView() {
             return { orderId, prodId, name, priceVal, date, status, userEmail };
         }).filter(r => r.name || r.orderId);
 
-        // FILTER USER-WISE: If user logged in (and not admin info@smartiqo.com), show ONLY that user's records!
-        if (currentUserEmail && currentUserEmail !== 'info@smartiqo.com') {
+        // STRICT USER FILTERING: Show ONLY orders belonging to the logged-in user!
+        if (currentUserEmail) {
             validRows = validRows.filter(r => {
-                if (!r.userEmail) return true; // keep if email field empty
-                return r.userEmail.trim().toLowerCase() === currentUserEmail;
+                const rowEmail = (r.userEmail || '').trim().toLowerCase();
+                return !rowEmail || rowEmail === currentUserEmail;
             });
+        } else {
+            validRows = [];
         }
 
         // TOP 5 RECORDS ONLY
@@ -978,7 +992,7 @@ function checkAndInjectOrdersView() {
                 </h3>
                 <div style="display:flex;align-items:center;gap:10px;">
                     <span style="font-size:12px;color:#6B7280;background:#F3F4F6;padding:4px 12px;border-radius:9999px;font-weight:600;">
-                        Showing Top ${top5.length} of ${validRows.length} Records
+                        Showing ${top5.length} of ${validRows.length} Records
                     </span>
                     <button onclick="window.open(getGoogleSheetDocUrl(), '_blank')" style="display:inline-flex;align-items:center;gap:6px;background:#10B981;color:#ffffff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:background 0.2s;" onmouseenter="this.style.background='#059669'" onmouseleave="this.style.background='#10B981'">
                         <span>View All in Google Sheet ↗</span>
@@ -1001,7 +1015,7 @@ function checkAndInjectOrdersView() {
         `;
 
         if (top5.length === 0) {
-            html += `<tr><td colspan="6" style="padding:24px;text-align:center;color:#9CA3AF;">No synced orders found for this account. Add items to cart to see data here.</td></tr>`;
+            html += `<tr><td colspan="6" style="padding:24px;text-align:center;color:#9CA3AF;">No synced orders found for ${currentUserEmail || 'this account'}. Add items to cart to see data here.</td></tr>`;
         } else {
             top5.forEach(item => {
                 html += `
