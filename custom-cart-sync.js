@@ -853,49 +853,112 @@ function checkAndInjectOrdersView() {
     const container = document.createElement('div');
     container.id = 'custom-orders-view';
     container.style.cssText = `
-        padding: 25px; margin: 30px auto; max-width: 1200px;
-        background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border-radius: 12px;
+        padding: 24px; margin: 24px auto; max-width: 1200px;
+        background: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.07); border-radius: 16px;
+        border: 1px solid rgba(25, 118, 210, 0.12); font-family: 'Inter', sans-serif;
     `;
-    container.innerHTML = `<p style="color:#888;font-family:sans-serif;">⏳ Loading synced data from Google Sheet...</p>`;
+    container.innerHTML = `<p style="color:#6B7280;font-size:14px;margin:0;">⏳ Loading synced Google Sheet orders & cart data...</p>`;
 
-    const main = document.querySelector('main') || document.body;
-    main.insertBefore(container, main.firstChild);
+    const targetParent = document.querySelector('main') || document.querySelector('.MuiContainer-root') || document.body;
+    if (targetParent.firstChild) {
+        targetParent.insertBefore(container, targetParent.firstChild);
+    } else {
+        targetParent.appendChild(container);
+    }
 
-    fetch(getWebAppUrl())
-        .then(res => res.json())
-        .then(data => {
-            const rows = Array.isArray(data) ? data : [];
-            let html = `<h3 style="color:#10B981;margin-top:0;font-family:'Inter',sans-serif;">✅ Synced Google Sheet Orders</h3>`;
-            html += `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:14px;font-family:'Inter',sans-serif;">`;
-            html += `<thead><tr>`;
-            for (const col of ['Order ID', 'Panel Name', 'Price', 'Date']) {
-                html += `<th style="border-bottom:2px solid #E5E7EB;padding:12px;font-weight:600;color:#374151;text-align:left;">${col}</th>`;
+    // Fetch from both Google Apps Script and local server relay (/api/orders-data)
+    Promise.allSettled([
+        fetch(getWebAppUrl()).then(r => r.json()),
+        fetch('/api/orders-data').then(r => r.json())
+    ]).then(results => {
+        let gasRows = results[0].status === 'fulfilled' && Array.isArray(results[0].value) ? results[0].value : [];
+        let localRows = results[1].status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value : [];
+
+        // Merge rows (prefer local server data if GAS is empty)
+        let rawRows = gasRows.length > 0 ? gasRows : localRows;
+
+        // Parse and normalize rows across all column naming conventions
+        const normalized = rawRows.map(row => {
+            const orderId = row['Cart / Order ID'] || row['Order ID'] || row.orderId || row.order_id || row.id || '—';
+            const prodId  = row['Product ID'] || row.productId || row.productSequence || '—';
+            const name    = row['Custom Product Name'] || row['Product / Order Name'] || row.customName || row.orderName || row.itemName || row.panelName || 'Custom Switch Panel';
+
+            // Price extraction
+            let priceVal = row['Total Price (₹)'] || row['Total Price'] || row.totalPrice || row.priceFormatted || row.price || '—';
+            if (typeof priceVal === 'number') {
+                priceVal = formatPrice(priceVal);
+            } else if (typeof priceVal === 'string' && priceVal !== '—' && !priceVal.includes('₹')) {
+                const num = parseFloat(priceVal.replace(/[^0-9.]/g, ''));
+                if (!isNaN(num)) priceVal = formatPrice(num);
             }
-            html += `</tr></thead><tbody>`;
 
-            if (rows.length === 0) {
-                html += `<tr><td colspan="4" style="padding:20px;text-align:center;color:#9CA3AF;">No data synced yet.</td></tr>`;
-            } else {
-                rows.forEach(order => {
-                    html += `<tr style="border-bottom:1px solid #F3F4F6;">
-                        <td style="padding:12px;font-weight:500;color:#1F2937;">${order.orderId || order.orderid || '—'}</td>
-                        <td style="padding:12px;color:#4B5563;">${order.panelName || order.panelname || order.customName || '—'}</td>
-                        <td style="padding:12px;font-weight:600;color:#111827;">${formatPrice(Number(order.price) || 0)}</td>
-                        <td style="padding:12px;color:#6B7280;font-size:12px;">${order.date ? new Date(order.date).toLocaleString() : '—'}</td>
-                    </tr>`;
-                });
+            const date = row['Date'] || row.date || row.createdAt || '—';
+            const status = row['Step 8: Cart Status'] || row.status || 'Synced';
+
+            let img = row['Image Preview URL'] || row.imagePreview || row.preview || '';
+            if (typeof img === 'string' && img.startsWith('=IMAGE("')) {
+                img = img.substring(8, img.length - 2);
             }
 
-            html += `</tbody></table></div>`;
-            container.innerHTML = html;
-        })
-        .catch(err => {
-            container.innerHTML = `
-                <h3 style="color:#dc3545;">❌ Failed to load from Google Sheet</h3>
-                <p style="color:#555;">Make sure your Google Apps Script is deployed as a Web App with <strong>"Anyone"</strong> access.</p>
-                <p style="font-size:12px;color:#999;">Error: ${err.message}</p>
-            `;
-        });
+            return { orderId, prodId, name, priceVal, date, status, img };
+        }).filter(r => r.orderId !== '—' || r.name !== 'Custom Switch Panel');
+
+        let html = `
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+                <h3 style="color:#10B981;margin:0;font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px;">
+                    <span>✅</span> Synced Google Sheet Orders & Cart
+                </h3>
+                <span style="font-size:12px;color:#6B7280;background:#F3F4F6;padding:4px 12px;border-radius:9999px;font-weight:600;">
+                    ${normalized.length} Item${normalized.length === 1 ? '' : 's'}
+                </span>
+            </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <thead>
+                        <tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB;">
+                            <th style="padding:10px 14px;font-weight:600;color:#374151;text-align:left;">Order ID</th>
+                            <th style="padding:10px 14px;font-weight:600;color:#374151;text-align:left;">Product ID</th>
+                            <th style="padding:10px 14px;font-weight:600;color:#374151;text-align:left;">Custom Name</th>
+                            <th style="padding:10px 14px;font-weight:600;color:#374151;text-align:left;">Price</th>
+                            <th style="padding:10px 14px;font-weight:600;color:#374151;text-align:left;">Date</th>
+                            <th style="padding:10px 14px;font-weight:600;color:#374151;text-align:left;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        if (normalized.length === 0) {
+            html += `<tr><td colspan="6" style="padding:24px;text-align:center;color:#9CA3AF;">No synced orders found yet. Add items to cart to see synced data.</td></tr>`;
+        } else {
+            normalized.forEach(item => {
+                html += `
+                    <tr style="border-bottom:1px solid #F3F4F6;transition:background 0.15s;" onmouseenter="this.style.background='#F9FAFB'" onmouseleave="this.style.background='transparent'">
+                        <td style="padding:10px 14px;font-weight:600;color:#1976D2;">${item.orderId}</td>
+                        <td style="padding:10px 14px;color:#4B5563;font-weight:500;">${item.prodId}</td>
+                        <td style="padding:10px 14px;color:#111827;font-weight:500;">${item.name}</td>
+                        <td style="padding:10px 14px;font-weight:700;color:#059669;">${item.priceVal}</td>
+                        <td style="padding:10px 14px;color:#6B7280;">${item.date}</td>
+                        <td style="padding:10px 14px;">
+                            <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:9999px;background:${item.status.includes('Confirmed') ? '#DEF7EC' : '#E0F2FE'};color:${item.status.includes('Confirmed') ? '#03543F' : '#0369A1'};">
+                                ${item.status}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        container.innerHTML = html;
+    }).catch(err => {
+        console.warn('[CartSync] Orders view load error:', err);
+        container.innerHTML = `<p style="color:#EF4444;font-size:13px;margin:0;">⚠️ Could not load synced data. Check network or server connection.</p>`;
+    });
 }
 
 // ─── SPA Observer: re-run checks on route/DOM changes ────────────────────────
