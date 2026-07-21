@@ -1622,457 +1622,348 @@ function enableDirectStepNavigation() {
 // Periodically check and make stepper tabs directly clickable
 setInterval(enableDirectStepNavigation, 800);
 
-
 // ╔══════════════════════════════════════════════════════════════════════════╗
-// ║       SmartiQo UI/UX Polish Layer (CSS + Interaction Enhancements)       ║
+// ║       SmartiQo UI/UX Polish Layer v2 (MutationObserver Edition)          ║
 // ║  • Auto-select toggle  • Cart icon  • Loading overlay  • Page transitions ║
 // ║  • Hover / active feedback • Accessibility • Responsive polish           ║
-// ║  ZERO business-logic changes — styling & animation only                  ║
+// ║  KEY FIX: MutationObserver keeps our <style> LAST so it beats MUI JSS   ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 (function injectSmartiQoUX() {
-    // ─── 1. INJECT GLOBAL STYLES ────────────────────────────────────────────
-    const styleId = 'sc-ux-polish-styles';
-    if (document.getElementById(styleId)) return;
+    'use strict';
 
-    const style = document.createElement('style');
-    style.id = styleId;
-    style.textContent = `
-/* ── Import Google Fonts ─────────────────────────────────────────────── */
+    const STYLE_ID = 'sc-ux-polish-v2';
+
+    // ─── CSS ──────────────────────────────────────────────────────────────────
+    const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-/* ── Root Variables ──────────────────────────────────────────────────── */
 :root {
-  --sc-primary: #1976d2;
-  --sc-primary-dark: #115293;
-  --sc-success: #10b981;
-  --sc-success-dark: #059669;
-  --sc-radius: 10px;
-  --sc-shadow: 0 2px 12px rgba(0,0,0,0.10);
-  --sc-shadow-hover: 0 6px 24px rgba(25,118,210,0.18);
-  --sc-transition: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-  --sc-font: 'Inter', system-ui, -apple-system, sans-serif;
+  --sc-p: #1976d2;
+  --sc-pd: #115293;
+  --sc-ok: #10b981;
+  --sc-r: 10px;
+  --sc-sh: 0 2px 12px rgba(0,0,0,.10);
+  --sc-shh: 0 6px 24px rgba(25,118,210,.18);
+  --sc-t: .22s cubic-bezier(.4,0,.2,1);
+  --sc-f: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-/* ── Base Typography ─────────────────────────────────────────────────── */
-body, .MuiTypography-root, .MuiButton-root, input, select, textarea {
-  font-family: var(--sc-font) !important;
+/* Typography */
+body,.MuiTypography-root,.MuiButton-root,input,select,textarea{
+  font-family:var(--sc-f)!important;
 }
 
-/* ─────────────────────────────────────────────────────────────────────── */
-/* 1. AUTO-SELECT TOGGLE  (MUI Switch)                                     */
-/* ─────────────────────────────────────────────────────────────────────── */
-.MuiSwitch-root {
-  cursor: pointer !important;
-  transition: opacity var(--sc-transition) !important;
-  border-radius: 34px !important;
-  position: relative !important;
+/* ── SWITCH / TOGGLE ─────────────────────────────────────────────── */
+.MuiSwitch-root{cursor:pointer!important;}
+.MuiSwitch-switchBase{transition:transform 220ms cubic-bezier(.4,0,.2,1)!important;}
+.MuiSwitch-track{
+  transition:background-color 220ms cubic-bezier(.4,0,.2,1)!important;
+  border-radius:99px!important;
+  opacity:1!important;
 }
-.MuiSwitch-root:hover {
-  opacity: 0.88 !important;
+.MuiSwitch-switchBase.Mui-checked+.MuiSwitch-track{
+  background-color:#10b981!important;
+  opacity:1!important;
 }
-.MuiSwitch-root:focus-within {
-  outline: 2px solid var(--sc-primary) !important;
-  outline-offset: 2px !important;
-  border-radius: 14px !important;
+.MuiSwitch-thumb{
+  box-shadow:0 1px 4px rgba(0,0,0,.25)!important;
 }
-.MuiSwitch-switchBase {
-  transition: transform 220ms cubic-bezier(0.4,0,0.2,1) !important;
+.MuiSwitch-root:hover{opacity:.88!important;}
+.MuiSwitch-root:focus-within{
+  outline:2px solid var(--sc-p)!important;
+  outline-offset:2px!important;
+  border-radius:14px!important;
 }
-.MuiSwitch-track {
-  transition: background-color 220ms cubic-bezier(0.4,0,0.2,1) !important;
-  border-radius: 99px !important;
-  opacity: 1 !important;
+.MuiFormControlLabel-root{cursor:pointer!important;user-select:none!important;}
+
+/* ── BUTTONS ─────────────────────────────────────────────────────── */
+.MuiButton-root{
+  font-family:var(--sc-f)!important;
+  font-weight:600!important;
+  border-radius:8px!important;
+  transition:transform var(--sc-t),box-shadow var(--sc-t),background-color var(--sc-t)!important;
+  will-change:transform,box-shadow!important;
 }
-.MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track {
-  background-color: var(--sc-success) !important;
-  opacity: 1 !important;
+.MuiButton-root:hover:not(:disabled){
+  transform:translateY(-1px)!important;
+  box-shadow:var(--sc-shh)!important;
 }
-.MuiSwitch-thumb {
-  box-shadow: 0 1px 4px rgba(0,0,0,0.25) !important;
-  transition: transform 220ms cubic-bezier(0.4,0,0.2,1) !important;
+.MuiButton-root:active:not(:disabled){
+  transform:translateY(0) scale(.98)!important;
+  box-shadow:none!important;
 }
-.MuiFormControlLabel-root {
-  cursor: pointer !important;
-  user-select: none !important;
+.MuiButton-root:focus-visible{
+  outline:2px solid var(--sc-p)!important;
+  outline-offset:3px!important;
 }
-.MuiFormControlLabel-root:hover .MuiSwitch-track {
-  opacity: 0.88 !important;
+.MuiButton-containedPrimary{
+  background:linear-gradient(135deg,#1976d2 0%,#115293 100%)!important;
+}
+.MuiButton-containedPrimary:hover:not(:disabled){
+  background:linear-gradient(135deg,#1e88e5 0%,#1976d2 100%)!important;
 }
 
-/* ─────────────────────────────────────────────────────────────────────── */
-/* 2. CART / TROLLEY ICON                                                   */
-/* ─────────────────────────────────────────────────────────────────────── */
-#sc-cart-btn,
-[id*="cart-btn"],
-[aria-label*="cart" i],
-[aria-label*="orders" i],
-[aria-label*="trolley" i] {
-  cursor: pointer !important;
-  transition: transform var(--sc-transition), box-shadow var(--sc-transition) !important;
-  border-radius: 50% !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 6px !important;
-  position: relative !important;
+/* ── CARDS ───────────────────────────────────────────────────────── */
+.MuiCard-root{
+  border-radius:var(--sc-r)!important;
+  transition:box-shadow var(--sc-t),transform var(--sc-t)!important;
 }
-#sc-cart-btn:hover,
-[id*="cart-btn"]:hover,
-[aria-label*="cart" i]:hover,
-[aria-label*="orders" i]:hover {
-  transform: scale(1.15) !important;
-  background: rgba(25,118,210,0.10) !important;
-  box-shadow: 0 2px 12px rgba(25,118,210,0.18) !important;
-}
-#sc-cart-btn:active {
-  transform: scale(0.95) !important;
+.MuiCard-root:hover{
+  box-shadow:var(--sc-shh)!important;
+  transform:translateY(-2px)!important;
 }
 
-/* ─────────────────────────────────────────────────────────────────────── */
-/* 3. BUTTONS — Hover, Active, Focus                                        */
-/* ─────────────────────────────────────────────────────────────────────── */
-.MuiButton-root {
-  font-family: var(--sc-font) !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.01em !important;
-  border-radius: 8px !important;
-  transition: transform var(--sc-transition), box-shadow var(--sc-transition), background-color var(--sc-transition) !important;
-  position: relative !important;
-  overflow: hidden !important;
+/* ── INPUTS ──────────────────────────────────────────────────────── */
+.MuiOutlinedInput-root{
+  border-radius:8px!important;
+  transition:box-shadow var(--sc-t)!important;
 }
-.MuiButton-root:hover {
-  transform: translateY(-1px) !important;
-  box-shadow: var(--sc-shadow-hover) !important;
-}
-.MuiButton-root:active {
-  transform: translateY(0) scale(0.98) !important;
-  box-shadow: none !important;
-}
-.MuiButton-root:focus-visible {
-  outline: 2px solid var(--sc-primary) !important;
-  outline-offset: 3px !important;
-}
-.MuiButton-containedPrimary {
-  background: linear-gradient(135deg, var(--sc-primary) 0%, var(--sc-primary-dark) 100%) !important;
-}
-.MuiButton-containedPrimary:hover {
-  background: linear-gradient(135deg, #1e88e5 0%, var(--sc-primary) 100%) !important;
+.MuiOutlinedInput-root.Mui-focused{
+  box-shadow:0 0 0 3px rgba(25,118,210,.18)!important;
 }
 
-/* ─────────────────────────────────────────────────────────────────────── */
-/* 4. CARDS — Elevation & Hover Effects                                     */
-/* ─────────────────────────────────────────────────────────────────────── */
-.MuiCard-root,
-.MuiPaper-root {
-  transition: box-shadow var(--sc-transition), transform var(--sc-transition) !important;
-  border-radius: var(--sc-radius) !important;
-}
-.MuiCard-root:hover {
-  box-shadow: var(--sc-shadow-hover) !important;
-  transform: translateY(-2px) !important;
-}
-.MuiCard-root[onClick],
-.MuiCard-root[role="button"],
-.MuiCard-root[tabindex] {
-  cursor: pointer !important;
+/* ── STEPPER ─────────────────────────────────────────────────────── */
+.MuiStep-root,.MuiStepLabel-root,.MuiStepIcon-root{cursor:pointer!important;}
+.MuiStep-root:hover .MuiStepLabel-label{color:var(--sc-p)!important;font-weight:600!important;}
+.MuiStepIcon-root{transition:transform var(--sc-t)!important;}
+.MuiStep-root:hover .MuiStepIcon-root{transform:scale(1.1)!important;}
+.MuiStepIcon-root.Mui-active{filter:drop-shadow(0 2px 6px rgba(25,118,210,.35))!important;}
+
+/* ── TABLE ROWS ──────────────────────────────────────────────────── */
+.MuiTableRow-root:not(.MuiTableRow-head):hover td,
+.MuiTableRow-root:not(.MuiTableRow-head):hover th{
+  background:rgba(25,118,210,.04)!important;
 }
 
-/* ─────────────────────────────────────────────────────────────────────── */
-/* 5. INPUTS — Smooth Focus                                                 */
-/* ─────────────────────────────────────────────────────────────────────── */
-.MuiOutlinedInput-root {
-  transition: box-shadow var(--sc-transition) !important;
-  border-radius: 8px !important;
+/* ── ICON BUTTONS ────────────────────────────────────────────────── */
+.MuiIconButton-root{
+  transition:background var(--sc-t),transform var(--sc-t)!important;
+  will-change:transform!important;
 }
-.MuiOutlinedInput-root.Mui-focused {
-  box-shadow: 0 0 0 3px rgba(25,118,210,0.18) !important;
+.MuiIconButton-root:hover{
+  transform:scale(1.12)!important;
+  background:rgba(25,118,210,.10)!important;
 }
-.MuiOutlinedInput-notchedOutline {
-  transition: border-color var(--sc-transition) !important;
+.MuiIconButton-root:active{transform:scale(.92)!important;}
+
+/* ── SIDEBAR NAV ─────────────────────────────────────────────────── */
+.MuiListItemButton-root{
+  border-radius:8px!important;
+  margin:2px 8px!important;
+  transition:background var(--sc-t),transform var(--sc-t)!important;
+}
+.MuiListItemButton-root:hover{
+  background:rgba(25,118,210,.08)!important;
+  transform:translateX(3px)!important;
+}
+.MuiListItemButton-root.Mui-selected{background:rgba(25,118,210,.14)!important;}
+
+/* ── MENU ITEMS ──────────────────────────────────────────────────── */
+.MuiMenuItem-root{
+  border-radius:6px!important;
+  margin:2px 4px!important;
+  transition:background var(--sc-t),padding-left var(--sc-t)!important;
+}
+.MuiMenuItem-root:hover{
+  background:rgba(25,118,210,.08)!important;
+  padding-left:20px!important;
+}
+.MuiMenuItem-root.Mui-selected{
+  background:rgba(25,118,210,.14)!important;
+  font-weight:600!important;
 }
 
-/* ─────────────────────────────────────────────────────────────────────── */
-/* 6. STEPPER STEPS — Directly Clickable Pointer                            */
-/* ─────────────────────────────────────────────────────────────────────── */
-.MuiStep-root,
-.MuiStepLabel-root,
-.MuiStepIcon-root,
-[class*="MuiStep"] {
-  cursor: pointer !important;
-  transition: opacity var(--sc-transition) !important;
+/* ── CHIPS ───────────────────────────────────────────────────────── */
+.MuiChip-root{
+  font-family:var(--sc-f)!important;
+  transition:transform var(--sc-t),box-shadow var(--sc-t)!important;
 }
-.MuiStep-root:hover .MuiStepLabel-label {
-  color: var(--sc-primary) !important;
-  font-weight: 600 !important;
+.MuiChip-root:hover{transform:scale(1.04)!important;box-shadow:0 2px 8px rgba(0,0,0,.12)!important;}
+
+/* ── DIALOG ──────────────────────────────────────────────────────── */
+.MuiDialog-paper{
+  border-radius:14px!important;
+  animation:sc-dialogIn 240ms cubic-bezier(.34,1.56,.64,1) both!important;
 }
-.MuiStep-root:hover .MuiStepIcon-root:not(.Mui-completed):not(.Mui-active) {
-  opacity: 0.8 !important;
-  transform: scale(1.1) !important;
-}
-.MuiStepIcon-root {
-  transition: transform var(--sc-transition) !important;
-}
-.MuiStepIcon-root.Mui-active {
-  filter: drop-shadow(0 2px 6px rgba(25,118,210,0.35)) !important;
-}
-.MuiStepConnector-line {
-  transition: border-color 0.4s !important;
+@keyframes sc-dialogIn{
+  from{opacity:0;transform:scale(.94) translateY(8px);}
+  to{opacity:1;transform:scale(1) translateY(0);}
 }
 
-/* ─────────────────────────────────────────────────────────────────────── */
-/* 7. TABLE ROWS — Hover Highlight                                          */
-/* ─────────────────────────────────────────────────────────────────────── */
-.MuiTableRow-root {
-  transition: background var(--sc-transition) !important;
+/* ── CART ICON ───────────────────────────────────────────────────── */
+#sc-cart-btn{
+  cursor:pointer!important;
+  border-radius:50%!important;
+  padding:6px!important;
+  transition:transform var(--sc-t),box-shadow var(--sc-t),background var(--sc-t)!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
 }
-.MuiTableRow-root:hover td {
-  background: rgba(25,118,210,0.04) !important;
+#sc-cart-btn:hover{
+  transform:scale(1.15)!important;
+  background:rgba(25,118,210,.10)!important;
+  box-shadow:0 2px 12px rgba(25,118,210,.18)!important;
 }
-.MuiTableCell-root {
-  transition: background var(--sc-transition) !important;
+#sc-cart-btn:active{transform:scale(.95)!important;}
+
+/* ── LOADING OVERLAY ─────────────────────────────────────────────── */
+#sc-loading-overlay{
+  position:fixed;inset:0;z-index:99999;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.72);
+  backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
+  opacity:0;pointer-events:none;
+  transition:opacity 220ms cubic-bezier(.4,0,.2,1);
+}
+#sc-loading-overlay.sc-visible{opacity:1;pointer-events:all;}
+.sc-spinner{
+  width:44px;height:44px;
+  border:3.5px solid rgba(25,118,210,.18);
+  border-top-color:#1976d2;
+  border-radius:50%;
+  animation:sc-spin .72s linear infinite;
+  box-shadow:0 4px 16px rgba(25,118,210,.18);
+}
+@keyframes sc-spin{to{transform:rotate(360deg);}}
+
+/* ── PAGE FADE ───────────────────────────────────────────────────── */
+.sc-page-fade{animation:sc-fadeIn 300ms cubic-bezier(.4,0,.2,1) both;}
+@keyframes sc-fadeIn{
+  from{opacity:0;transform:translateY(6px);}
+  to{opacity:1;transform:translateY(0);}
 }
 
-/* ─────────────────────────────────────────────────────────────────────── */
-/* 8. ICON BUTTONS                                                          */
-/* ─────────────────────────────────────────────────────────────────────── */
-.MuiIconButton-root {
-  transition: background var(--sc-transition), transform var(--sc-transition) !important;
-}
-.MuiIconButton-root:hover {
-  transform: scale(1.12) !important;
-  background: rgba(25,118,210,0.10) !important;
-}
-.MuiIconButton-root:active {
-  transform: scale(0.92) !important;
+/* ── TOOLTIP ─────────────────────────────────────────────────────── */
+.MuiTooltip-tooltip{
+  font-family:var(--sc-f)!important;
+  font-size:12px!important;font-weight:500!important;
+  border-radius:6px!important;padding:5px 10px!important;
+  background:rgba(20,20,30,.88)!important;
 }
 
-/* ─────────────────────────────────────────────────────────────────────── */
-/* 9. MENU ITEMS                                                            */
-/* ─────────────────────────────────────────────────────────────────────── */
-.MuiMenuItem-root {
-  transition: background var(--sc-transition), padding-left var(--sc-transition) !important;
-  border-radius: 6px !important;
-  margin: 2px 4px !important;
-}
-.MuiMenuItem-root:hover {
-  background: rgba(25,118,210,0.08) !important;
-  padding-left: 20px !important;
-}
-.MuiMenuItem-root.Mui-selected {
-  background: rgba(25,118,210,0.14) !important;
-  font-weight: 600 !important;
-}
+/* ── ACCORDION ───────────────────────────────────────────────────── */
+.MuiAccordion-root{border-radius:8px!important;transition:box-shadow var(--sc-t)!important;}
+.MuiAccordion-root.Mui-expanded{box-shadow:0 4px 20px rgba(0,0,0,.10)!important;}
+.MuiAccordionSummary-root:hover{background:rgba(25,118,210,.04)!important;}
 
-/* ─────────────────────────────────────────────────────────────────────── */
-/* 10. GLOBAL LOADING OVERLAY                                               */
-/* ─────────────────────────────────────────────────────────────────────── */
-#sc-loading-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255,255,255,0.72);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 220ms cubic-bezier(0.4,0,0.2,1);
-}
-#sc-loading-overlay.sc-visible {
-  opacity: 1;
-  pointer-events: all;
-}
-.sc-spinner {
-  width: 44px;
-  height: 44px;
-  border: 3px solid rgba(25,118,210,0.18);
-  border-top-color: var(--sc-primary);
-  border-radius: 50%;
-  animation: sc-spin 0.72s linear infinite;
-  box-shadow: 0 4px 16px rgba(25,118,210,0.18);
-}
-@keyframes sc-spin {
-  to { transform: rotate(360deg); }
-}
+/* ── SCROLLBAR ───────────────────────────────────────────────────── */
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(25,118,210,.28);border-radius:99px;}
+::-webkit-scrollbar-thumb:hover{background:rgba(25,118,210,.55);}
 
-/* ─────────────────────────────────────────────────────────────────────── */
-/* 11. PAGE TRANSITION FADE                                                 */
-/* ─────────────────────────────────────────────────────────────────────── */
-.sc-page-fade-enter {
-  animation: sc-fadeIn 280ms cubic-bezier(0.4,0,0.2,1) both;
+/* ── RESPONSIVE ──────────────────────────────────────────────────── */
+@media(max-width:768px){
+  .MuiButton-root{min-height:42px!important;font-size:14px!important;}
+  .sc-spinner{width:36px!important;height:36px!important;}
 }
-@keyframes sc-fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-/* ─────────────────────────────────────────────────────────────────────── */
-/* 12. SIDEBAR / NAV ITEMS                                                  */
-/* ─────────────────────────────────────────────────────────────────────── */
-.MuiListItemButton-root {
-  border-radius: 8px !important;
-  margin: 2px 8px !important;
-  transition: background var(--sc-transition), transform var(--sc-transition) !important;
-}
-.MuiListItemButton-root:hover {
-  background: rgba(25,118,210,0.08) !important;
-  transform: translateX(3px) !important;
-}
-.MuiListItemButton-root.Mui-selected,
-.MuiListItemButton-root.Mui-selected:hover {
-  background: rgba(25,118,210,0.14) !important;
-}
-
-/* ─────────────────────────────────────────────────────────────────────── */
-/* 13. CHIP / BADGE IMPROVEMENTS                                            */
-/* ─────────────────────────────────────────────────────────────────────── */
-.MuiChip-root {
-  transition: transform var(--sc-transition), box-shadow var(--sc-transition) !important;
-  font-family: var(--sc-font) !important;
-}
-.MuiChip-root:hover {
-  transform: scale(1.04) !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12) !important;
-}
-.MuiBadge-badge {
-  transition: transform var(--sc-transition) !important;
-  font-weight: 700 !important;
-  min-width: 20px !important;
-  height: 20px !important;
-  font-size: 11px !important;
-}
-
-/* ─────────────────────────────────────────────────────────────────────── */
-/* 14. TOOLTIP IMPROVEMENTS                                                 */
-/* ─────────────────────────────────────────────────────────────────────── */
-.MuiTooltip-tooltip {
-  font-family: var(--sc-font) !important;
-  font-size: 12px !important;
-  font-weight: 500 !important;
-  border-radius: 6px !important;
-  padding: 5px 10px !important;
-  background: rgba(30,30,40,0.88) !important;
-}
-
-/* ─────────────────────────────────────────────────────────────────────── */
-/* 15. SCROLL BAR STYLING                                                   */
-/* ─────────────────────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(25,118,210,0.28); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(25,118,210,0.55); }
-
-/* ─────────────────────────────────────────────────────────────────────── */
-/* 16. DIALOG / MODAL ANIMATIONS                                            */
-/* ─────────────────────────────────────────────────────────────────────── */
-.MuiDialog-paper {
-  border-radius: 14px !important;
-  animation: sc-dialogIn 240ms cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-}
-@keyframes sc-dialogIn {
-  from { opacity: 0; transform: scale(0.94) translateY(8px); }
-  to   { opacity: 1; transform: scale(1)   translateY(0); }
-}
-
-/* ─────────────────────────────────────────────────────────────────────── */
-/* 17. ACCORDION SMOOTH EXPAND                                              */
-/* ─────────────────────────────────────────────────────────────────────── */
-.MuiAccordion-root {
-  transition: box-shadow var(--sc-transition), border-radius var(--sc-transition) !important;
-  border-radius: 8px !important;
-}
-.MuiAccordion-root.Mui-expanded {
-  box-shadow: 0 4px 20px rgba(0,0,0,0.10) !important;
-}
-.MuiAccordionSummary-root {
-  transition: background var(--sc-transition) !important;
-  border-radius: 8px 8px 0 0 !important;
-}
-.MuiAccordionSummary-root:hover {
-  background: rgba(25,118,210,0.04) !important;
-}
-
-/* ─────────────────────────────────────────────────────────────────────── */
-/* 18. RESPONSIVE UTILITIES                                                 */
-/* ─────────────────────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
-  .MuiButton-root {
-    min-height: 42px !important;
-    font-size: 14px !important;
-  }
-  #sc-loading-overlay .sc-spinner {
-    width: 36px;
-    height: 36px;
-  }
-}
-@media (hover: none) {
-  /* On touch devices, remove hover transforms to avoid sticky effects */
-  .MuiButton-root:hover,
-  .MuiCard-root:hover,
-  .MuiIconButton-root:hover {
-    transform: none !important;
+@media(hover:none){
+  .MuiButton-root:hover,.MuiCard-root:hover,.MuiIconButton-root:hover{
+    transform:none!important;
   }
 }
 `;
 
-    const head = document.head || document.getElementsByTagName('head')[0];
-    head.appendChild(style);
-
-    // ─── 2. LOADING OVERLAY ELEMENT ───────────────────────────────────────────
-    let overlayEl = document.getElementById('sc-loading-overlay');
-    if (!overlayEl) {
-        overlayEl = document.createElement('div');
-        overlayEl.id = 'sc-loading-overlay';
-        overlayEl.setAttribute('role', 'status');
-        overlayEl.setAttribute('aria-label', 'Loading');
-        overlayEl.innerHTML = '<div class="sc-spinner"></div>';
-        document.body.appendChild(overlayEl);
+    // ─── Inject <style> & keep it LAST in <head> via MutationObserver ─────────
+    function createStyle() {
+        const el = document.createElement('style');
+        el.id = STYLE_ID;
+        el.textContent = CSS;
+        return el;
     }
 
+    let styleEl = null;
+
+    function ensureStylesLast() {
+        const head = document.head;
+        if (!head) return;
+        let el = document.getElementById(STYLE_ID);
+        if (!el) {
+            el = createStyle();
+            styleEl = el;
+            head.appendChild(el);
+        } else if (el !== head.lastElementChild) {
+            head.appendChild(el); // re-append → moves to end without duplicating
+        }
+        styleEl = el;
+    }
+
+    // Initial injection
+    if (document.head) {
+        ensureStylesLast();
+    } else {
+        document.addEventListener('DOMContentLoaded', ensureStylesLast);
+    }
+
+    // Watch <head> – MUI JSS will inject many <style> tags; each time, we move ours to end
+    const headObserver = new MutationObserver((muts) => {
+        for (const m of muts) {
+            if (m.addedNodes.length) { ensureStylesLast(); break; }
+        }
+    });
+    if (document.head) headObserver.observe(document.head, { childList: true });
+
+    // Safety net: re-check every 2s
+    setInterval(ensureStylesLast, 2000);
+
+    // ─── 2. LOADING OVERLAY ───────────────────────────────────────────────────
+    let overlayEl = null;
     let _loadingTimer = null;
     let _isLoading = false;
 
-    function scShowLoading(duration) {
-        if (_isLoading) return;
-        _isLoading = true;
-        overlayEl.classList.add('sc-visible');
-        if (duration) {
-            _loadingTimer = setTimeout(scHideLoading, duration);
+    function ensureOverlay() {
+        if (!overlayEl) {
+            overlayEl = document.getElementById('sc-loading-overlay');
+            if (!overlayEl && document.body) {
+                overlayEl = document.createElement('div');
+                overlayEl.id = 'sc-loading-overlay';
+                overlayEl.setAttribute('role', 'status');
+                overlayEl.setAttribute('aria-label', 'Loading');
+                overlayEl.innerHTML = '<div class="sc-spinner"></div>';
+                document.body.appendChild(overlayEl);
+            }
         }
+        return overlayEl;
+    }
+
+    function scShowLoading(duration) {
+        const el = ensureOverlay();
+        if (!el) return;
+        _isLoading = true;
+        el.classList.add('sc-visible');
+        if (_loadingTimer) clearTimeout(_loadingTimer);
+        if (duration) _loadingTimer = setTimeout(scHideLoading, duration);
     }
 
     function scHideLoading() {
         _isLoading = false;
-        overlayEl.classList.remove('sc-visible');
+        const el = document.getElementById('sc-loading-overlay');
+        if (el) el.classList.remove('sc-visible');
         if (_loadingTimer) { clearTimeout(_loadingTimer); _loadingTimer = null; }
     }
 
-    // Expose globally for use anywhere
     window.scShowLoading = scShowLoading;
     window.scHideLoading = scHideLoading;
 
-    // ─── 3. PAGE TRANSITION — Fade-in on load ─────────────────────────────────
+    // ─── 3. PAGE FADE ─────────────────────────────────────────────────────────
     function applyPageFade() {
-        const main = document.querySelector('main, .MuiContainer-root, #__next > div');
-        if (main && !main.classList.contains('sc-page-fade-enter')) {
-            main.classList.add('sc-page-fade-enter');
+        const main = document.querySelector('main, .MuiContainer-root, #__next > div, [class*="Layout"]');
+        if (main && !main.classList.contains('sc-page-fade')) {
+            main.classList.add('sc-page-fade');
         }
     }
 
-    // ─── 4. LOADING OVERLAY ON NAVIGATION CLICKS ──────────────────────────────
+    // ─── 4. NAV LOADING HANDLERS ──────────────────────────────────────────────
     function attachNavLoadingHandlers() {
-        // MUI Sidebar nav items
         document.querySelectorAll(
-            '.MuiListItemButton-root:not([data-sc-nav-loading]), ' +
-            '.MuiMenuItem-root:not([data-sc-nav-loading])[href], ' +
-            'a.MuiLink-root:not([data-sc-nav-loading]), ' +
-            'a[href]:not([data-sc-nav-loading]):not([href^="#"]):not([href^="javascript"]):not([href^="mailto"]):not([href^="tel"])'
+            '.MuiListItemButton-root:not([data-sc-nav]), ' +
+            'a[href]:not([data-sc-nav]):not([href^="#"]):not([href^="javascript"]):not([href^="mailto"]):not([href^="tel"])'
         ).forEach(el => {
-            if (el.dataset.scNavLoading) return;
-            el.dataset.scNavLoading = '1';
+            if (el.dataset.scNav) return;
+            el.dataset.scNav = '1';
             el.addEventListener('click', () => {
                 const href = el.href || el.getAttribute('href') || '';
                 if (href && !href.startsWith('#') && !href.startsWith('javascript')) {
@@ -2081,71 +1972,50 @@ body, .MuiTypography-root, .MuiButton-root, input, select, textarea {
             });
         });
 
-        // Stepper Next/Back buttons
-        document.querySelectorAll('.MuiButton-root:not([data-sc-step-loading])').forEach(btn => {
+        document.querySelectorAll('.MuiButton-root:not([data-sc-step])').forEach(btn => {
             const txt = (btn.textContent || '').trim().toLowerCase();
-            if (txt === 'next' || txt === 'back' || txt === 'previous' || txt === 'finish') {
-                btn.dataset.scStepLoading = '1';
+            if (['next','back','previous','finish'].includes(txt)) {
+                btn.dataset.scStep = '1';
                 btn.addEventListener('click', () => scShowLoading(1200));
             }
         });
     }
 
-    // ─── 5. CART ICON TOOLTIP & ARIA ──────────────────────────────────────────
+    // ─── 5. CART ICON ─────────────────────────────────────────────────────────
     function enhanceCartIcon() {
         const cartBtn = document.getElementById('sc-cart-btn');
-        if (cartBtn && !cartBtn.dataset.uxEnhanced) {
-            cartBtn.dataset.uxEnhanced = '1';
+        if (cartBtn && !cartBtn.dataset.scUxCart) {
+            cartBtn.dataset.scUxCart = '1';
             cartBtn.setAttribute('title', 'View Orders & Cart');
             cartBtn.setAttribute('aria-label', 'Go to Cart / Orders');
             cartBtn.setAttribute('role', 'button');
             cartBtn.setAttribute('tabindex', '0');
-            cartBtn.style.cursor = 'pointer';
-
-            // Keyboard support
             cartBtn.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    cartBtn.click();
-                }
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cartBtn.click(); }
             });
         }
     }
 
-    // ─── 6. TOGGLE ARIA IMPROVEMENTS ──────────────────────────────────────────
-    function enhanceToggleSwitches() {
+    // ─── 6. TOGGLE SWITCHES ───────────────────────────────────────────────────
+    function enhanceToggles() {
         document.querySelectorAll('.MuiSwitch-root:not([data-sc-ux])').forEach(sw => {
             sw.dataset.scUx = '1';
-            if (!sw.getAttribute('role')) sw.setAttribute('role', 'switch');
+            sw.setAttribute('role', 'switch');
             const input = sw.querySelector('input[type="checkbox"]');
             if (input) {
                 sw.setAttribute('aria-checked', input.checked ? 'true' : 'false');
                 sw.setAttribute('tabindex', '0');
-                input.addEventListener('change', () => {
-                    sw.setAttribute('aria-checked', input.checked ? 'true' : 'false');
-                });
+                input.addEventListener('change', () => sw.setAttribute('aria-checked', input.checked ? 'true' : 'false'));
                 sw.addEventListener('keydown', (e) => {
-                    if (e.key === ' ' || e.key === 'Enter') {
-                        e.preventDefault();
-                        input.click();
-                    }
+                    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); input.click(); }
                 });
             }
         });
     }
 
-    // ─── 7. HIDE LOADING WHEN CONTENT IS READY ────────────────────────────────
-    function checkAndHideLoading() {
-        // After route change, hide loading once body settles
-        if (_isLoading) {
-            const visibleContent = document.querySelector('main h1, main h2, main table, main .MuiCard-root');
-            if (visibleContent) scHideLoading();
-        }
-    }
-
-    // ─── 8. SPA ROUTE CHANGE DETECTION ───────────────────────────────────────
+    // ─── 7. SPA ROUTE WATCH ───────────────────────────────────────────────────
     let _lastHref = window.location.href;
-    function watchRouteChange() {
+    function watchRoute() {
         if (window.location.href !== _lastHref) {
             _lastHref = window.location.href;
             scShowLoading(2500);
@@ -2154,35 +2024,39 @@ body, .MuiTypography-root, .MuiButton-root, input, select, textarea {
                 applyPageFade();
                 attachNavLoadingHandlers();
                 enhanceCartIcon();
-                enhanceToggleSwitches();
-            }, 320);
+                enhanceToggles();
+                ensureStylesLast();
+            }, 350);
         }
     }
 
-    // ─── RUN EVERYTHING ───────────────────────────────────────────────────────
-    function initUX() {
+    // ─── INIT ─────────────────────────────────────────────────────────────────
+    function init() {
+        ensureOverlay();
         applyPageFade();
         attachNavLoadingHandlers();
         enhanceCartIcon();
-        enhanceToggleSwitches();
+        enhanceToggles();
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initUX);
+        document.addEventListener('DOMContentLoaded', init);
     } else {
-        initUX();
+        init();
     }
 
-    // Poll for SPA route changes & dynamic elements
+    // Main polling loop
     setInterval(() => {
-        watchRouteChange();
-        checkAndHideLoading();
+        watchRoute();
+        if (_isLoading) {
+            const vis = document.querySelector('main h1,main h2,main table,main .MuiCard-root');
+            if (vis) scHideLoading();
+        }
         attachNavLoadingHandlers();
         enhanceCartIcon();
-        enhanceToggleSwitches();
+        enhanceToggles();
     }, 700);
 
-    // Hide loading on popstate (browser back/forward)
     window.addEventListener('popstate', () => setTimeout(scHideLoading, 350));
 
 })();
