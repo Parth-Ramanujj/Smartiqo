@@ -843,6 +843,10 @@ function checkAndInjectProfileInput() {
 }
 
 // ─── Orders/Cart page: Show synced rows from Google Sheet ────────────────────
+function getGoogleSheetDocUrl() {
+    return localStorage.getItem('googleSheetDocUrl') || 'https://docs.google.com/spreadsheets/';
+}
+
 function checkAndInjectOrdersView() {
     const isTargetPage = window.location.href.toLowerCase().includes('orders')
         || window.location.href.toLowerCase().includes('cart');
@@ -857,7 +861,7 @@ function checkAndInjectOrdersView() {
         background: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.07); border-radius: 16px;
         border: 1px solid rgba(25, 118, 210, 0.12); font-family: 'Inter', sans-serif;
     `;
-    container.innerHTML = `<p style="color:#6B7280;font-size:14px;margin:0;">⏳ Loading synced Google Sheet orders & cart data...</p>`;
+    container.innerHTML = `<p style="color:#6B7280;font-size:14px;margin:0;">⏳ Loading synced Google Sheet orders...</p>`;
 
     const targetParent = document.querySelector('main') || document.querySelector('.MuiContainer-root') || document.body;
     if (targetParent.firstChild) {
@@ -874,43 +878,45 @@ function checkAndInjectOrdersView() {
         let gasRows = results[0].status === 'fulfilled' && Array.isArray(results[0].value) ? results[0].value : [];
         let localRows = results[1].status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value : [];
 
-        // Merge rows (prefer local server data if GAS is empty)
         let rawRows = gasRows.length > 0 ? gasRows : localRows;
 
-        // Parse and normalize rows across all column naming conventions
-        const normalized = rawRows.map(row => {
-            const orderId = row['Cart / Order ID'] || row['Order ID'] || row.orderId || row.order_id || row.id || '—';
-            const prodId  = row['Product ID'] || row.productId || row.productSequence || '—';
-            const name    = row['Custom Product Name'] || row['Product / Order Name'] || row.customName || row.orderName || row.itemName || row.panelName || 'Custom Switch Panel';
+        // Parse and filter out invalid/dummy empty rows
+        const validRows = rawRows.map(row => {
+            const orderId = row['Cart / Order ID'] || row['Order ID'] || row.orderId || row.order_id || row.id || '';
+            const prodId  = row['Product ID'] || row.productId || row.productSequence || '';
+            const name    = row['Custom Product Name'] || row['Product / Order Name'] || row.customName || row.orderName || row.itemName || row.panelName || '';
 
-            // Price extraction
-            let priceVal = row['Total Price (₹)'] || row['Total Price'] || row.totalPrice || row.priceFormatted || row.price || '—';
-            if (typeof priceVal === 'number') {
+            let priceVal = row['Total Price (₹)'] || row['Total Price'] || row.totalPrice || row.priceFormatted || row.price || '';
+            if (typeof priceVal === 'number' && priceVal > 0) {
                 priceVal = formatPrice(priceVal);
-            } else if (typeof priceVal === 'string' && priceVal !== '—' && !priceVal.includes('₹')) {
+            } else if (typeof priceVal === 'string' && priceVal && !priceVal.includes('₹')) {
                 const num = parseFloat(priceVal.replace(/[^0-9.]/g, ''));
-                if (!isNaN(num)) priceVal = formatPrice(num);
+                if (!isNaN(num) && num > 0) priceVal = formatPrice(num);
             }
 
-            const date = row['Date'] || row.date || row.createdAt || '—';
+            const date = row['Date'] || row.date || row.createdAt || '';
             const status = row['Step 8: Cart Status'] || row.status || 'Synced';
 
-            let img = row['Image Preview URL'] || row.imagePreview || row.preview || '';
-            if (typeof img === 'string' && img.startsWith('=IMAGE("')) {
-                img = img.substring(8, img.length - 2);
-            }
+            return { orderId, prodId, name, priceVal, date, status };
+        }).filter(r => r.orderId && r.orderId !== '—' && r.name && r.name !== '—' && r.priceVal && r.priceVal !== '—' && r.priceVal !== '₹ 0.00');
 
-            return { orderId, prodId, name, priceVal, date, status, img };
-        }).filter(r => r.orderId !== '—' || r.name !== 'Custom Switch Panel');
+        // TOP 5 RECORDS ONLY
+        const top5 = validRows.slice(0, 5);
 
         let html = `
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
                 <h3 style="color:#10B981;margin:0;font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px;">
-                    <span>✅</span> Synced Google Sheet Orders & Cart
+                    <span>✅</span> Synced Google Sheet Orders
                 </h3>
-                <span style="font-size:12px;color:#6B7280;background:#F3F4F6;padding:4px 12px;border-radius:9999px;font-weight:600;">
-                    ${normalized.length} Item${normalized.length === 1 ? '' : 's'}
-                </span>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:12px;color:#6B7280;background:#F3F4F6;padding:4px 12px;border-radius:9999px;font-weight:600;">
+                        Showing ${top5.length} of ${validRows.length} Records
+                    </span>
+                    <button onclick="window.open(getGoogleSheetDocUrl(), '_blank')" style="display:inline-flex;align-items:center;gap:6px;background:#10B981;color:#ffffff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:background 0.2s;" onmouseenter="this.style.background='#059669'" onmouseleave="this.style.background='#10B981'">
+                        <span>View All in Google Sheet</span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                    </button>
+                </div>
             </div>
             <div style="overflow-x:auto;">
                 <table style="width:100%;border-collapse:collapse;font-size:13px;">
@@ -927,10 +933,10 @@ function checkAndInjectOrdersView() {
                     <tbody>
         `;
 
-        if (normalized.length === 0) {
+        if (top5.length === 0) {
             html += `<tr><td colspan="6" style="padding:24px;text-align:center;color:#9CA3AF;">No synced orders found yet. Add items to cart to see synced data.</td></tr>`;
         } else {
-            normalized.forEach(item => {
+            top5.forEach(item => {
                 html += `
                     <tr style="border-bottom:1px solid #F3F4F6;transition:background 0.15s;" onmouseenter="this.style.background='#F9FAFB'" onmouseleave="this.style.background='transparent'">
                         <td style="padding:10px 14px;font-weight:600;color:#1976D2;">${item.orderId}</td>
@@ -952,6 +958,13 @@ function checkAndInjectOrdersView() {
                     </tbody>
                 </table>
             </div>
+            ${validRows.length > 5 ? `
+                <div style="text-align:center;margin-top:16px;padding-top:12px;border-top:1px solid #F3F4F6;">
+                    <button onclick="window.open(getGoogleSheetDocUrl(), '_blank')" style="background:transparent;color:#10B981;border:1px solid #10B981;padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.background='#10B981';this.style.color='#ffffff';" onmouseleave="this.style.background='transparent';this.style.color='#10B981';">
+                        View All ${validRows.length} Records in Google Sheet ↗
+                    </button>
+                </div>
+            ` : ''}
         `;
 
         container.innerHTML = html;
@@ -960,7 +973,6 @@ function checkAndInjectOrdersView() {
         container.innerHTML = `<p style="color:#EF4444;font-size:13px;margin:0;">⚠️ Could not load synced data. Check network or server connection.</p>`;
     });
 }
-
 // ─── SPA Observer: re-run checks on route/DOM changes ────────────────────────
 let _lastHref = '';
 const observer = new MutationObserver(() => {
