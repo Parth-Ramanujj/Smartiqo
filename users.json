@@ -1,0 +1,75 @@
+{
+  "_comment": "Add or remove users here. Each user gets their own cart and session. Restart serve.py after changes.",
+  "users": [
+    {
+      "email": "info@smartiqo.com",
+      "password": "Smartiqo@7772",
+      "name": "Admin User",
+      "role": "admin",
+      "id": "user_001"
+    },
+    {
+      "email": "user2@smartiqo.com",
+      "password": "User2@pass",
+      "name": "User Two",
+      "role": "user",
+      "id": "user_002"
+    },
+    {
+      "email": "user3@smartiqo.com",
+      "password": "User3@pass",
+      "name": "User Three",
+      "role": "user",
+      "id": "user_003"
+    },
+    {
+      "email": "user4@smartiqo.com",
+      "password": "User4@pass",
+      "name": "User Four",
+      "role": "user",
+      "id": "user_004"
+    },
+    {
+      "email": "user5@smartiqo.com",
+      "password": "User5@pass",
+      "name": "User Five",
+      "role": "user",
+      "id": "user_005"
+    },
+    {
+      "email": "user6@smartiqo.com",
+      "password": "User6@pass",
+      "name": "User Six",
+      "role": "user",
+      "id": "user_006"
+    },
+    {
+      "email": "user7@smartiqo.com",
+      "password": "User7@pass",
+      "name": "User Seven",
+      "role": "user",
+      "id": "user_007"
+    },
+    {
+      "email": "user8@smartiqo.com",
+      "password": "User8@pass",
+      "name": "User Eight",
+      "role": "user",
+      "id": "user_008"
+    },
+    {
+      "email": "user9@smartiqo.com",
+      "password": "User9@pass",
+      "name": "User Nine",
+      "role": "user",
+      "id": "user_009"
+    },
+    {
+      "email": "user10@smartiqo.com",
+      "password": "User10@pass",
+      "name": "User Ten",
+      "role": "user",
+      "id": "user_010"
+    }
+  ]
+}
