@@ -1562,3 +1562,48 @@ setInterval(updateHeaderCartBadge, 1000);
         }
     }, true);
 })();
+
+
+// ─── Direct Step Navigation: Allow users to click any step tab directly ─────
+function enableDirectStepNavigation() {
+    const isDashboardPage = window.location.href.toLowerCase().includes('userdashboard')
+        || window.location.href.toLowerCase().includes('vdplshop.in');
+
+    if (!isDashboardPage) return;
+
+    // Find all MUI step labels / stepper items
+    const stepElements = document.querySelectorAll('.MuiStep-root, .MuiStepLabel-root, [class*="MuiStep"]');
+    if (!stepElements || stepElements.length === 0) return;
+
+    stepElements.forEach((el, index) => {
+        if (el.dataset.directNavAttached) return;
+        el.dataset.directNavAttached = "true";
+        el.style.cursor = "pointer";
+        el.title = "Click to jump directly to this step";
+
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            console.log('[CartSync] Direct step click detected for index:', index);
+
+            if (window.__store) {
+                try {
+                    window.__store.dispatch({
+                        type: 'cartData/setActiveStep',
+                        payload: index
+                    });
+                } catch(err) {
+                    console.warn('[CartSync] Direct step dispatch error:', err);
+                }
+            }
+
+            // Fallback DOM click simulation if Redux action differs
+            const targetButton = document.querySelectorAll('.MuiStep-root')[index];
+            if (targetButton && targetButton !== el) {
+                targetButton.click();
+            }
+        });
+    });
+}
+
+// Periodically check and make stepper tabs directly clickable
+setInterval(enableDirectStepNavigation, 800);
