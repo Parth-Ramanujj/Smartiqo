@@ -215,7 +215,8 @@ function buildFullItemPayload(item, orderId, isOrderConfirmation) {
     const priceStr = formatPrice(totalPrice);
     const unitPriceStr = formatPrice(totalPrice / qty);
 
-    const droppedCount = Array.isArray(item.dropped) ? item.dropped.length : 0;
+    const droppedArr = Array.isArray(item.dropped) ? item.dropped : [];
+    const droppedCount = droppedArr.length;
     const savings = droppedCount * 100 * qty;
 
     const productId = (item.productSequence || '').trim() || item.id || ('PROD-' + Math.floor(1000 + Math.random() * 9000));
@@ -228,20 +229,32 @@ function buildFullItemPayload(item, orderId, isOrderConfirmation) {
     const sizeModule = cartData.size?.item || '';
     const techType = cartData.technology?.item || '';
 
+    // Extract individual color categories into separate fields
+    let glassColor = '', frameColor = '', buttonColor = '';
     const colorParts = [];
     if (Array.isArray(cartData.color)) {
         cartData.color.forEach(c => {
-            if (c.options && c.options.length > 0) {
-                colorParts.push(`${c.optionType}: ${c.options.map(o => o.item).join(', ')}`);
+            const optType = (c.optionType || '').toLowerCase();
+            const itemsList = (c.options || []).map(o => o.item).join(', ');
+            if (itemsList) {
+                colorParts.push(`${c.optionType}: ${itemsList}`);
+                if (optType.includes('glass') || optType.includes('panel') || optType.includes('face')) glassColor = itemsList;
+                else if (optType.includes('border') || optType.includes('frame') || optType.includes('edge')) frameColor = itemsList;
+                else if (optType.includes('button') || optType.includes('icon') || optType.includes('touch')) buttonColor = itemsList;
+                else if (!glassColor) glassColor = itemsList;
             }
         });
     }
     const colorsStr = colorParts.join(' | ');
 
+    // Extract individual accessories into comma-separated string
     const accessoriesList = [...(cartData.accessories || []), ...(cartData.accessories1 || []), ...(cartData.accessories2 || []), ...(cartData.accessories3 || [])]
         .flatMap(a => (a.options || []).map(o => o.item))
         .filter(Boolean)
         .join(', ');
+
+    // Extract icon names
+    const iconNamesList = droppedArr.map(ic => ic.title || ic.name || ic.id || 'Icon').filter(Boolean).join(', ');
 
     const detailsSummary = extractProductDetails(cartData);
     const panelName = `${customName} (${detailsSummary})`;
@@ -251,29 +264,52 @@ function buildFullItemPayload(item, orderId, isOrderConfirmation) {
     const flowPdfData = generateFlowPdfDataUrl(customName, detailsSummary, orderId, priceStr, dateStr);
 
     return {
+        // Identity & User
         orderId: orderId,
         date: dateStr,
         productId: productId,
         orderName: orderName,
         customName: customName,
         panelName: panelName,
+
+        // Separate Panel Specifications
         panel: panelType,
+        panelType: panelType,
         material: materialType,
+        materialType: materialType,
         size: sizeModule,
+        sizeModule: sizeModule,
         technology: techType,
+        techType: techType,
+
+        // Separate Colors
+        glassColor: glassColor,
+        frameColor: frameColor,
+        buttonColor: buttonColor,
         colors: colorsStr,
+
+        // Separate Accessories & Icons
         accessories: accessoriesList,
+        iconsCount: String(droppedCount),
+        iconNames: iconNamesList,
+        dropped: droppedArr,
+
+        // Separate Pricing & Status
         qty: String(qty),
         quantity: String(qty),
         unitPrice: unitPriceStr,
         price: totalPrice,
         priceFormatted: priceStr,
+        totalPrice: priceStr,
         savings: savings > 0 ? formatPrice(savings) : '₹ 0.00',
+        status: isOrderConfirmation ? 'Confirmed' : 'In Cart',
+
+        // Preview & Raw Data
         imagePreview: imgPreview,
         preview: imgPreview || detailsSummary,
         flowPdf: flowPdfData,
         pdf: flowPdfData,
-        status: isOrderConfirmation ? 'Confirmed' : 'Cart'
+        cartData: cartData
     };
 }
 

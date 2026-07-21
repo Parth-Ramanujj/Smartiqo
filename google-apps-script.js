@@ -7,7 +7,7 @@
  * ╚══════════════════════════════════════════════════════════════════════════════╝
  *
  * SHEET STRUCTURE (auto-created on first request):
- *  Sheet 1: "Orders"         — One row per cart item / order
+ *  Sheet 1: "Orders"         — Each field stored in its own separate column
  *  Sheet 2: "User Activity"  — Step-by-step user journey tracking
  *  Sheet 3: "Users"          — Login/logout activity
  */
@@ -17,49 +17,54 @@ var SHEET_NAME_ORDERS   = "Orders";
 var SHEET_NAME_ACTIVITY = "User Activity";
 var SHEET_NAME_USERS    = "Users";
 
-// ─── ORDERS sheet columns ──────────────────────────────────────────────────────
+// ─── ORDERS sheet columns (EVERY FIELD HAS ITS OWN SEPARATE COLUMN) ───────────
 var ORDER_HEADERS = [
-  "Timestamp",          // A: When the record was created
-  "Order ID",           // B: Unique order identifier (ORD-XXXXXX)
-  "User Email",         // C: User's email address
-  "User Name",          // D: User's display name
-  "Item Name",          // E: Product/Order name
-  "Panel Type",         // F: Touch Panel / Edge / Color
-  "Material",           // G: Material selection
-  "Size / Module",      // H: Size or module count
-  "Accessories",        // I: List of accessories chosen
-  "Icons Count",        // J: Number of icons placed
-  "Color Selections",   // K: Colors chosen per zone
-  "Technology",         // L: Technology type
-  "Quantity",           // M: Number of units
-  "Unit Price (₹)",     // N: Price per unit
-  "Total Price (₹)",    // O: Total price for this item
-  "Status",             // P: In Cart / Ordered / Completed / Cancelled
-  "Product Sequence",   // Q: Internal product code
-  "Notes",              // R: Any extra notes
-  "Image URL",          // S: Preview image URL (if available)
-  "Raw JSON"            // T: Full item data as JSON (for reference)
+  "Date",                   // A: Date (DD/MM/YYYY)
+  "Time",                   // B: Time (HH:MM:SS IST)
+  "Order ID",               // C: Unique order identifier (ORD-XXXXXX)
+  "User Email",             // D: User's email address
+  "User Name",              // E: User's display name
+  "Product / Order Name",   // F: Custom product name given by user
+  "Panel Type",             // G: Touch Panel / Edge / Color / etc.
+  "Material",               // H: Glass, Acrylic, Aluminum, Wood, etc.
+  "Size / Module",          // I: 2 Module, 4 Module, 6 Module, 8 Module, etc.
+  "Glass / Panel Color",    // J: Glass or Panel face color
+  "Border / Frame Color",   // K: Edge or border frame color
+  "Button / Icon Color",    // L: Touch button / LED color
+  "Accessories",            // M: Individual accessories selected
+  "Icons Count",            // N: Number of icons placed on panel
+  "Icon Names / Layout",    // O: Names of icons placed on panel
+  "Technology",             // P: Touch, Mechanical, Smart, Zigbee, WiFi, etc.
+  "Quantity",               // Q: Number of units ordered
+  "Unit Price (₹)",         // R: Price per single unit
+  "Total Price (₹)",        // S: Total price (Quantity * Unit Price)
+  "Savings (₹)",            // T: Total savings or discount applied
+  "Status",                 // U: Cart / Confirmed / Processing / Completed
+  "Product Sequence",       // V: Internal product sequence code
+  "Image Preview URL",      // W: Preview image URL / Data URL
+  "Raw JSON Data"           // X: Full raw JSON payload for reference
 ];
 
 // ─── USER ACTIVITY sheet columns ───────────────────────────────────────────────
 var ACTIVITY_HEADERS = [
-  "Timestamp",    // A
-  "Session ID",   // B
-  "User Email",   // C
-  "Step",         // D: e.g. "1-Panel", "2-Material", "3-Size" ... "8-Cart"
-  "Step Name",    // E: e.g. "Panel", "Material", "Size"
-  "Selection",    // F: What the user selected
-  "Details",      // G: Extra detail (JSON summary)
+  "Date",         // A
+  "Time",         // B
+  "Session ID",   // C
+  "User Email",   // D
+  "Step Name",    // E: Panel / Material / Size / Accessories / Icons / Color / Tech / Cart
+  "Selection",    // F: What the user selected in this step
+  "Details",      // G: Additional parameters for this selection
   "Action"        // H: selected / deselected / next / back / add_to_cart
 ];
 
 // ─── USERS sheet columns ────────────────────────────────────────────────────────
 var USER_HEADERS = [
-  "Timestamp",    // A
-  "User Email",   // B
-  "User Name",    // C
-  "Action",       // D: login / logout
-  "IP / Session"  // E
+  "Date",         // A
+  "Time",         // B
+  "User Email",   // C
+  "User Name",    // D
+  "Action",       // E: login / logout
+  "Session ID"    // F
 ];
 
 // ══════════════════════════════════════════════════════════════════════════════════
@@ -67,7 +72,6 @@ var USER_HEADERS = [
 // ══════════════════════════════════════════════════════════════════════════════════
 
 function doGet(e) {
-  // Allow reading all orders for display in the app
   var action = (e && e.parameter && e.parameter.action) || "getOrders";
   var userEmail = e && e.parameter && e.parameter.email;
 
@@ -86,7 +90,6 @@ function doGet(e) {
         for (var j = 0; j < headers.length; j++) {
           row[headers[j]] = data[i][j];
         }
-        // Filter by user if email provided
         if (!userEmail || row["User Email"] === userEmail) {
           rows.push(row);
         }
@@ -139,8 +142,8 @@ function doPost(e) {
       return handleUserActivity(ss, body);
     }
 
-    // Fallback: try to detect type from fields
-    if (body.orderId || body.panelType || body.cartData) {
+    // Fallback detection
+    if (body.orderId || body.panelType || body.cartData || body.panel) {
       return handleOrderData(ss, body);
     }
 
@@ -148,7 +151,7 @@ function doPost(e) {
       return handleActivityData(ss, body);
     }
 
-    return jsonResponse({ success: true, message: "Received but unrecognized type: " + type });
+    return jsonResponse({ success: true, message: "Received unrecognized type: " + type });
 
   } catch(err) {
     Logger.log("doPost error: " + err.message);
@@ -157,57 +160,62 @@ function doPost(e) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════
-// HANDLERS
+// HANDLERS (STORE EVERY FIELD IN SEPARATE INDIVIDUAL COLUMNS)
 // ══════════════════════════════════════════════════════════════════════════════════
 
 function handleOrderData(ss, body) {
   var sheet = getOrCreateSheet(ss, SHEET_NAME_ORDERS, ORDER_HEADERS);
 
-  var now = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+  var nowObj = new Date();
+  var dateStr = nowObj.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
+  var timeStr = nowObj.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" });
+
   var orderId     = body.orderId     || body.order_id     || ("ORD-" + Date.now());
   var userEmail   = body.userEmail   || body.user_email   || body.email   || "";
   var userName    = body.userName    || body.user_name    || body.name    || "";
-  var itemName    = body.itemName    || body.customProductName || body.orderName || "Custom Panel";
-  var panelType   = body.panelType   || getProp(body, "cartData.panel.item")  || "";
-  var material    = body.material    || getProp(body, "cartData.material.item") || "";
-  var size        = body.size        || getProp(body, "cartData.size.item")   || "";
-  var accessories = body.accessories || getProp(body, "cartData.accessories") || "";
-  var iconsCount  = body.iconsCount  || body.icons_count  || "";
-  var colors      = body.colors      || body.colorSelections || "";
-  var technology  = body.technology  || getProp(body, "cartData.technology.item") || "";
-  var quantity    = body.quantity    || 1;
+  var productName = body.customName  || body.orderName    || body.itemName || "Custom Switch Panel";
+
+  // Individual Panel Configurations in Separate Fields
+  var panelType   = body.panel       || body.panelType    || getProp(body, "cartData.panel.item")    || "";
+  var material    = body.material    || body.materialType || getProp(body, "cartData.material.item") || "";
+  var size        = body.size        || body.sizeModule   || getProp(body, "cartData.size.item")     || "";
+
+  // Separate Colors (Glass, Frame, Button)
+  var glassColor  = body.glassColor  || body.panelColor   || extractColorByType(body, ["glass", "panel", "face"])  || "";
+  var frameColor  = body.frameColor  || body.borderColor  || extractColorByType(body, ["border", "frame", "edge"]) || "";
+  var buttonColor = body.buttonColor || body.iconColor   || extractColorByType(body, ["button", "icon", "touch"]) || "";
+
+  // Accessories & Icons
+  var accessories = body.accessories || extractAccessories(body) || "";
+  var iconsCount  = body.iconsCount  || extractIconsCount(body)  || "0";
+  var iconNames   = body.iconNames   || extractIconNames(body)   || "";
+
+  // Technology & Pricing
+  var technology  = body.technology  || body.techType     || getProp(body, "cartData.technology.item") || "";
+  var quantity    = body.quantity    || body.qty          || 1;
   var unitPrice   = body.unitPrice   || body.unit_price   || "";
-  var totalPrice  = body.totalPrice  || body.total_price  || "";
-  var status      = body.status      || (body.isOrderConfirmation ? "Ordered" : "In Cart");
-  var productSeq  = body.productSequence || body.product_sequence || "";
-  var notes       = body.notes       || "";
-  var imageUrl    = body.imageUrl    || body.image_url    || "";
-
-  // Serialize accessories if array
-  if (Array.isArray(accessories)) {
-    accessories = accessories.map(function(a) {
-      if (typeof a === "object") return (a.item || a.name || JSON.stringify(a));
-      return String(a);
-    }).join(", ");
-  }
-
-  // Serialize colors if array/object
-  if (typeof colors === "object") {
-    try { colors = JSON.stringify(colors); } catch(e) { colors = String(colors); }
-  }
+  var totalPrice  = body.totalPrice  || body.priceFormatted || body.price || "";
+  var savings     = body.savings     || "₹ 0.00";
+  var status      = body.status      || (body.isOrderConfirmation ? "Confirmed" : "Cart");
+  var productSeq  = body.productSequence || body.productId || "";
+  var imageUrl    = body.imagePreview|| body.preview      || "";
 
   var rawJson = "";
   try { rawJson = JSON.stringify(body); } catch(e) { rawJson = ""; }
 
-  // Check if this orderId + itemName already exists (update instead of duplicate)
-  var existingRow = findExistingRow(sheet, orderId, itemName);
+  // Array formatting to clean strings
+  if (Array.isArray(accessories)) accessories = accessories.join(", ");
+  if (Array.isArray(iconNames))   iconNames   = iconNames.join(", ");
+
   var rowData = [
-    now, orderId, userEmail, userName, itemName,
-    panelType, material, size, accessories, iconsCount,
-    colors, technology, quantity, unitPrice, totalPrice,
-    status, productSeq, notes, imageUrl, rawJson
+    dateStr, timeStr, orderId, userEmail, userName, productName,
+    panelType, material, size, glassColor, frameColor, buttonColor,
+    accessories, iconsCount, iconNames, technology, quantity,
+    unitPrice, totalPrice, savings, status, productSeq, imageUrl, rawJson
   ];
 
+  // Update existing row if orderId + productName match, otherwise append
+  var existingRow = findExistingRow(sheet, orderId, productName);
   if (existingRow > 0) {
     sheet.getRange(existingRow, 1, 1, rowData.length).setValues([rowData]);
     Logger.log("Updated row " + existingRow + " for order " + orderId);
@@ -223,11 +231,12 @@ function handleOrderData(ss, body) {
 function handleActivityData(ss, body) {
   var sheet = getOrCreateSheet(ss, SHEET_NAME_ACTIVITY, ACTIVITY_HEADERS);
 
-  var now       = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+  var nowObj    = new Date();
+  var dateStr   = nowObj.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
+  var timeStr   = nowObj.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" });
   var sessionId = body.sessionId   || body.session_id  || "";
   var userEmail = body.userEmail   || body.user_email  || body.email || "";
-  var step      = body.step        || "";
-  var stepName  = body.stepName    || body.step_name   || "";
+  var stepName  = body.stepName    || body.step        || "";
   var selection = body.selection   || body.value       || "";
   var details   = body.details     || "";
   var action    = body.action      || "selected";
@@ -235,24 +244,23 @@ function handleActivityData(ss, body) {
   if (typeof details === "object") {
     try { details = JSON.stringify(details); } catch(e) { details = ""; }
   }
-  if (typeof selection === "object") {
-    try { selection = JSON.stringify(selection); } catch(e) { selection = String(selection); }
-  }
 
-  sheet.appendRow([now, sessionId, userEmail, step, stepName, selection, details, action]);
+  sheet.appendRow([dateStr, timeStr, sessionId, userEmail, stepName, selection, details, action]);
   return jsonResponse({ success: true });
 }
 
 function handleUserActivity(ss, body) {
   var sheet = getOrCreateSheet(ss, SHEET_NAME_USERS, USER_HEADERS);
 
-  var now       = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+  var nowObj    = new Date();
+  var dateStr   = nowObj.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
+  var timeStr   = nowObj.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" });
   var userEmail = body.userEmail   || body.user_email  || body.email || "";
   var userName  = body.userName    || body.user_name   || body.name  || "";
   var action    = body.type        || "login";
   var session   = body.sessionId   || body.session     || "";
 
-  sheet.appendRow([now, userEmail, userName, action, session]);
+  sheet.appendRow([dateStr, timeStr, userEmail, userName, action, session]);
   return jsonResponse({ success: true });
 }
 
@@ -260,31 +268,80 @@ function handleUserActivity(ss, body) {
 // HELPERS
 // ══════════════════════════════════════════════════════════════════════════════════
 
+function extractColorByType(body, keywords) {
+  try {
+    var colors = body.colorsList || getProp(body, "cartData.color") || [];
+    if (typeof body.colors === "string" && body.colors) return body.colors;
+
+    if (Array.isArray(colors)) {
+      for (var i = 0; i < colors.length; i++) {
+        var optType = (colors[i].optionType || "").toLowerCase();
+        for (var k = 0; k < keywords.length; k++) {
+          if (optType.indexOf(keywords[k]) !== -1) {
+            var opts = colors[i].options || [];
+            return opts.map(function(o) { return o.item; }).join(", ");
+          }
+        }
+      }
+    }
+  } catch(e) {}
+  return "";
+}
+
+function extractAccessories(body) {
+  try {
+    var cartData = body.cartData || {};
+    var list = [...(cartData.accessories || []), ...(cartData.accessories1 || []), ...(cartData.accessories2 || []), ...(cartData.accessories3 || [])];
+    return list.flatMap(function(a) { return (a.options || []).map(function(o) { return o.item; }); }).filter(Boolean).join(", ");
+  } catch(e) { return ""; }
+}
+
+function extractIconsCount(body) {
+  try {
+    var dropped = body.dropped || getProp(body, "cartData.dropped") || [];
+    return Array.isArray(dropped) ? String(dropped.length) : "0";
+  } catch(e) { return "0"; }
+}
+
+function extractIconNames(body) {
+  try {
+    var dropped = body.dropped || getProp(body, "cartData.dropped") || [];
+    if (Array.isArray(dropped)) {
+      return dropped.map(function(ic) { return ic.title || ic.name || ic.id || "Icon"; }).join(", ");
+    }
+  } catch(e) { return ""; }
+}
+
 function getOrCreateSheet(ss, name, headers) {
   var sheet = ss.getSheetByName(name);
   if (!sheet) {
     sheet = ss.insertSheet(name);
-    // Add bold header row
     var headerRange = sheet.getRange(1, 1, 1, headers.length);
     headerRange.setValues([headers]);
     headerRange.setFontWeight("bold");
     headerRange.setBackground("#1976d2");
     headerRange.setFontColor("#ffffff");
     sheet.setFrozenRows(1);
-    // Auto-resize columns
     for (var i = 1; i <= headers.length; i++) {
       sheet.setColumnWidth(i, 160);
     }
-    Logger.log("Created sheet: " + name);
+    Logger.log("Created sheet with separate columns: " + name);
+  } else {
+    // Ensure header row matches latest headers
+    var currentHeader = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
+    if (currentHeader[0] !== headers[0] || currentHeader.length < headers.length) {
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#1976d2").setFontColor("#ffffff");
+    }
   }
   return sheet;
 }
 
-function findExistingRow(sheet, orderId, itemName) {
+function findExistingRow(sheet, orderId, productName) {
   var data = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][1]) === String(orderId) && String(data[i][4]) === String(itemName)) {
-      return i + 1; // 1-indexed row number
+    if (String(data[i][2]) === String(orderId) && String(data[i][5]) === String(productName)) {
+      return i + 1;
     }
   }
   return -1;
@@ -294,7 +351,6 @@ function autoFormatSheet(sheet) {
   try {
     var lastRow = sheet.getLastRow();
     if (lastRow > 1) {
-      // Alternate row colors
       for (var i = 2; i <= lastRow; i++) {
         var range = sheet.getRange(i, 1, 1, sheet.getLastColumn());
         range.setBackground(i % 2 === 0 ? "#f8f9ff" : "#ffffff");
