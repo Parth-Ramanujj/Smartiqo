@@ -1273,19 +1273,20 @@ setInterval(updateHeaderCartBadge, 1000);
 })();
 
 
-// ─── Header Cart Button Enforcer (v3 - Robust MutationObserver) ─────────────
+// ─── Header Cart Button Enforcer (v4 - Multi-Target + Realtime Badge) ────────
 (function() {
+    'use strict';
     var CART_BTN_ID = 'header-cart-btn';
-    var NOTIF_ID = 'notification-bell';
 
-    var CART_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="display:block;width:24px;height:24px;" aria-hidden="true"><path fill="#1976d2" d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2M1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2"/></svg>';
+    var TROLLEY_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="display:block;width:24px;height:24px;fill:currentColor;" aria-hidden="true"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2M1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2"/></svg>';
 
     function buildCartBtn() {
         var btn = document.createElement('button');
         btn.id = CART_BTN_ID;
         btn.type = 'button';
-        btn.setAttribute('aria-label', 'Cart');
-        btn.setAttribute('title', 'Cart');
+        btn.className = 'MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeMedium';
+        btn.setAttribute('aria-label', 'View Cart & Orders');
+        btn.setAttribute('title', 'View Cart & Orders');
         btn.style.cssText = [
             'position:relative',
             'display:inline-flex',
@@ -1302,12 +1303,17 @@ setInterval(updateHeaderCartBadge, 1000);
             'margin-left:6px',
             'margin-right:6px',
             'padding:0',
-            'transition:transform 0.18s,box-shadow 0.18s',
+            'transition:transform 0.18s cubic-bezier(.4,0,.2,1),box-shadow 0.18s cubic-bezier(.4,0,.2,1)',
             'flex-shrink:0',
+            'z-index:99'
         ].join(';');
-        btn.innerHTML = CART_SVG;
+
+        var badgeSpan = '<span class="cart-badge" style="display:none;position:absolute;top:-3px;right:-3px;min-width:18px;height:18px;border-radius:9999px;padding:0 4px;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 2px 6px rgba(239,68,68,0.5);pointer-events:none;">0</span>';
+
+        btn.innerHTML = TROLLEY_SVG + badgeSpan;
+
         btn.addEventListener('mouseenter', function() {
-            btn.style.transform = 'translateY(-2px)';
+            btn.style.transform = 'scale(1.12) translateY(-1px)';
             btn.style.boxShadow = '0 8px 24px rgba(25,118,210,0.32)';
         });
         btn.addEventListener('mouseleave', function() {
@@ -1315,57 +1321,75 @@ setInterval(updateHeaderCartBadge, 1000);
             btn.style.boxShadow = '0 4px 16px rgba(25,118,210,0.20)';
         });
         btn.addEventListener('click', function(e) {
+            e.preventDefault();
             e.stopPropagation();
-            window.location.href = '/orders?tab=cart';
+            if (typeof window.scShowLoading === 'function') {
+                window.scShowLoading(1500);
+            }
+            // Navigate to Cart / Orders page
+            var cur = window.location.href.toLowerCase();
+            if (cur.includes('dashboards/userdashboard') || cur.includes('dashboards/admindashboard')) {
+                // Look for tab button on page if available
+                var cartTabBtn = document.querySelector('[role="tab"][id*="cart" i], button[id*="cart" i]:not(#header-cart-btn)');
+                if (cartTabBtn) {
+                    cartTabBtn.click();
+                    return;
+                }
+            }
+            window.location.href = '/Dashboards/userDashboard?tab=cart';
         });
+
         return btn;
     }
 
     function injectCartBtn() {
         try {
-            // Don't inject if already exists and positioned correctly
             var existing = document.getElementById(CART_BTN_ID);
-            var notifBell = document.getElementById(NOTIF_ID);
-            if (!notifBell) return;
 
-            var parent = notifBell.parentElement;
-            if (!parent) return;
+            // Find best insertion target in header
+            var notifBell = document.getElementById('notification-bell');
+            var avatar = document.querySelector('.avatar-ring, .MuiAvatar-root, [aria-label*="profile" i]');
+            var headerRight = document.querySelector('header .MuiBox-root:last-child, .MuiAppBar-root .MuiBox-root:last-child');
+            var headerEl = document.querySelector('header, .MuiAppBar-root, [class*="header" i]');
 
             if (existing) {
-                // Check it's still the sibling right before notification bell
-                if (existing.nextElementSibling === notifBell) return;
-                existing.remove();
+                // Ensure badge is updated
+                if (typeof updateHeaderCartBadge === 'function') updateHeaderCartBadge();
+                return;
             }
 
             var btn = buildCartBtn();
-            parent.insertBefore(btn, notifBell);
+
+            if (notifBell && notifBell.parentElement) {
+                notifBell.parentElement.insertBefore(btn, notifBell);
+            } else if (avatar) {
+                var avatarBtn = avatar.closest('button') || avatar.parentElement;
+                if (avatarBtn && avatarBtn.parentElement) {
+                    avatarBtn.parentElement.insertBefore(btn, avatarBtn);
+                }
+            } else if (headerRight) {
+                headerRight.appendChild(btn);
+            } else if (headerEl) {
+                headerEl.appendChild(btn);
+            }
+
+            if (typeof updateHeaderCartBadge === 'function') {
+                updateHeaderCartBadge();
+            }
         } catch(e) {
             console.error('[CartEnforcer] Error:', e);
         }
     }
 
-    // Run on DOM ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', injectCartBtn);
     } else {
         injectCartBtn();
     }
 
-    // Run every 300ms for the first 10s after load to catch React hydration
-    var attempts = 0;
-    var maxAttempts = 40;
-    var interval = setInterval(function() {
-        injectCartBtn();
-        attempts++;
-        if (attempts >= maxAttempts) {
-            clearInterval(interval);
-            // After initial burst, use MutationObserver for SPA navigation
-            var observer = new MutationObserver(function() {
-                injectCartBtn();
-            });
-            observer.observe(document.body, { childList: true, subtree: true });
-        }
-    }, 300);
+    // Keep header cart trolley button present across all React re-renders & SPA route changes
+    setInterval(injectCartBtn, 600);
+
 })();
 
 
