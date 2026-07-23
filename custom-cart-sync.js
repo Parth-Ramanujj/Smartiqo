@@ -261,43 +261,44 @@ function extractProductDetails(itemData) {
   return detailParts.join(" | ") || "Custom Panel";}
 
 // ─── Capture Image Preview Data URL from page DOM or item screenshot ────────
-function getImagePreviewDataUrl(itemData) {
+async function getImagePreviewDataUrl(itemData) {
   if (
     itemData &&
     itemData.screenshotDataUrl &&
     typeof itemData.screenshotDataUrl === "string" &&
     itemData.screenshotDataUrl.startsWith("data:image")
   ) {
-    console.log("[CartSync] Using existing screenshotDataUrl");
     return itemData.screenshotDataUrl;
   }
 
-  try {
-    const canvas = document.querySelector("canvas");
-    const bgImg = document.querySelector('img[alt*="Panel"], img[alt*="preview"], .panel-preview img, img.glass-panel-bg');
-    
-    if (canvas && bgImg) {
-      console.log("[CartSync] Found both canvas and background image. Compositing...");
-      const tempCanvas = document.createElement("canvas");
-      tempCanvas.width = canvas.width || bgImg.naturalWidth || 800;
-      tempCanvas.height = canvas.height || bgImg.naturalHeight || 600;
-      const ctx = tempCanvas.getContext("2d");
-      ctx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-      try { ctx.drawImage(bgImg, 0, 0, tempCanvas.width, tempCanvas.height); } catch(e) {}
-      try { ctx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height); } catch(e) {}
-      return tempCanvas.toDataURL("image/png");
-    } else if (canvas) {
-      console.log("[CartSync] Found only canvas, returning toDataURL");
-      return canvas.toDataURL("image/png");
-    } else if (bgImg && bgImg.src) {
-      console.log("[CartSync] Found only img tag, returning src:", bgImg.src.substring(0, 50));
-      return bgImg.src;
+  const targetNode = document.querySelector(".panel-preview") || document.querySelector(".panel-container") || document.querySelector(".glass-panel-bg")?.parentElement || document.querySelector("canvas")?.parentElement;
+  if (!targetNode) return "";
+
+  return new Promise((resolve) => {
+    if (typeof window.html2canvas === "undefined") {
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+      script.onload = () => doCapture(targetNode, resolve);
+      script.onerror = () => resolve("");
+      document.head.appendChild(script);
+    } else {
+      doCapture(targetNode, resolve);
     }
-  } catch (e) {
-    console.error("[CartSync] Composite preview failed:", e);
-  }
-  console.log("[CartSync] No preview image found, returning empty");
-  return "";
+
+    function doCapture(node, res) {
+      window.html2canvas(node, {
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: null,
+        scale: 2
+      }).then((canvas) => {
+        res(canvas.toDataURL("image/png"));
+      }).catch((e) => {
+        console.error("html2canvas failed:", e);
+        res("");
+      });
+    }
+  });
 }
 
 // ─── Helper to escape PDF string characters ──────────────────────────────────
@@ -357,7 +358,7 @@ function generateFlowPdfDataUrl(
   }}
 
 // ─── Build full item payload with all My Cart details ────────────────────────
-function buildFullItemPayload(item, orderId, isOrderConfirmation) {
+async function buildFullItemPayload(item, orderId, isOrderConfirmation) {
   const qty = Math.max(1, Math.floor(item.quantity || 1));
   const totalPrice = Number(item.totalPrice) || 0;
   const priceStr = formatPrice(totalPrice);
@@ -404,7 +405,7 @@ function buildFullItemPayload(item, orderId, isOrderConfirmation) {
   const detailsSummary = extractProductDetails(cartData);
   const panelName = `${customName} (${detailsSummary})`;
 
-  const imgPreview = getImagePreviewDataUrl(item);
+  const imgPreview = await getImagePreviewDataUrl(item);
   const dateStr = item.createdAt || new Date().toISOString();
   const flowPdfData = generateFlowPdfDataUrl(
     customName,
@@ -490,8 +491,8 @@ function syncCartToGoogleSheet(isOrderConfirmation = false) {
 
   const orderId = "ORD-" + Math.floor(100000 + Math.random() * 900000);
 
-  const promises = cartItems.map((item) => {
-    const singlePayload = buildFullItemPayload(
+  const promises = cartItems.map(async (item) => {
+    const singlePayload = await buildFullItemPayload(
       item,
       orderId,
       isOrderConfirmation,
@@ -597,7 +598,7 @@ function getCurrentDesignFromRedux() {
   }}
 
 // ─── Sync single item or handle Update Item ───────────────────────────────────
-function syncSingleItemToGoogleSheet(design) {
+async function syncSingleItemToGoogleSheet(design) {
   if (!design || !design.cartData) {
     console.warn("[CartSync] No active design found to sync.");
     return Promise.resolve({ empty: true });
@@ -620,7 +621,7 @@ function syncSingleItemToGoogleSheet(design) {
 
       if (idx !== -1) {
         const existingItem = cartItems[idx];
-        const newScreenshotUrl = getImagePreviewDataUrl(design);
+        const newScreenshotUrl = await getImagePreviewDataUrl(design);
         const updatedItems = [...cartItems];
         updatedItems[idx] = {
           ...updatedItems[idx],
@@ -657,7 +658,7 @@ function syncSingleItemToGoogleSheet(design) {
     createdAt: new Date().toISOString(),
   };
 
-  const singlePayload = buildFullItemPayload(item, orderId, false);
+  const singlePayload = await buildFullItemPayload(item, orderId, false);
   singlePayload.status = isEditing ? "Updated" : "Add to Cart";
 
   // Clear editing flag after sync
