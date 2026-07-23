@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {
   "_comment": "Add or remove users here. Each user gets their own cart and session. Restart serve.py after changes.",
   "users": [
@@ -73,3 +74,19 @@
     }
   ]
 }
+=======
+[
+  {
+    "email": "admin@smartiqo.com",
+    "password": "Admin@7772",
+    "role": "admin",
+    "name": "Admin User"
+  },
+  {
+    "email": "info@smartiqo.com",
+    "password": "Smartiqo@7772",
+    "role": "user",
+    "name": "Standard User"
+  }
+]
+>>>>>>> 16291ab (Initial project import)

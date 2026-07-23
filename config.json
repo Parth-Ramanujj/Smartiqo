@@ -1,5 +1,9 @@
 {
   "port": 8080,
   "host": "0.0.0.0",
+<<<<<<< HEAD
   "googleSheetDocUrl": "https://docs.google.com/spreadsheets/d/1pQ85rMRXLC-06FhKCdt7Q4o5EHLos2ZxL7XvhCCfGjY/edit?pli=1&gid=692857449#gid=692857449"
+=======
+  "googleSheetUrl": "https://script.google.com/macros/s/AKfycbzSTmI2W9J58MOC_fUEQad9_IZ0FlHRE2dklrY-YzAvS99_sF_nEjNMDUkl0pnq7G87/exec"
+>>>>>>> 16291ab (Initial project import)
 }

@@ -19,7 +19,10 @@ import json
 import signal
 import logging
 import urllib.parse
+<<<<<<< HEAD
 import uuid
+=======
+>>>>>>> 16291ab (Initial project import)
 from datetime import datetime
 from pathlib import Path
 
@@ -34,6 +37,7 @@ DIR = Path(os.path.dirname(os.path.abspath(__file__)))
 PORT = int(os.environ.get("PORT", "8080"))
 HOST = os.environ.get("HOST", "0.0.0.0")
 
+<<<<<<< HEAD
 # ─── Multi-user session store ─────────────────────────────────────────────────
 # sessions: { token_string -> {email, name, role, id} }
 SESSIONS = {}
@@ -88,6 +92,8 @@ def _get_session(token):
     """Return session data for token, or None."""
     return SESSIONS.get(token)
 
+=======
+>>>>>>> 16291ab (Initial project import)
 
 def load_env():
     env_path = DIR.parent / ".env"
@@ -105,8 +111,11 @@ def load_env():
 
 API_MOCK_DIR = DIR / "api-static"
 PAGES_DIR = DIR / "pages"
+<<<<<<< HEAD
 CART_DATA_DIR = DIR / "cart-data"
 CART_DATA_DIR.mkdir(exist_ok=True)
+=======
+>>>>>>> 16291ab (Initial project import)
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
@@ -143,24 +152,49 @@ class CORSHandler(SimpleHTTPRequestHandler):
         path = self.path
         path_lower = path.lower()
 
+<<<<<<< HEAD
         # ── Auth: precheck ─────────────────────────────────────────────────────
+=======
+        # Secure Authentication precheck and signin/callback API mocks
+>>>>>>> 16291ab (Initial project import)
         if "api/auth/precheck" in path_lower:
             body = self._read_body()
             try:
                 data = json.loads(body)
+<<<<<<< HEAD
                 email = data.get("email", "").strip().lower()
                 password = data.get("password", "").strip()
                 user = _authenticate(email, password)
                 self._send_json(200, {"code": "OK" if user else "INVALID"})
+=======
+                email = data.get("email", "").strip()
+                password = data.get("password", "").strip()
+
+                auth_username = os.environ.get("AUTH_USERNAME", "info@smartiqo.com")
+                auth_password = os.environ.get("AUTH_PASSWORD", "Smartiqo@7772")
+
+                if email == auth_username and password == auth_password:
+                    self._send_json(200, {"code": "OK"})
+                else:
+                    self._send_json(200, {"code": "INVALID"})
+>>>>>>> 16291ab (Initial project import)
             except Exception as e:
                 logger.error("Precheck error: %s", e)
                 self._send_json(200, {"code": "INVALID"})
             return
 
+<<<<<<< HEAD
         # ── Auth: signin / callback ───────────────────────────────────────────
         if "/api/auth/signin" in path_lower or "/api/auth/callback" in path_lower:
             body = self._read_body()
             try:
+=======
+
+        if "/api/auth/signin" in path_lower or "/api/auth/callback" in path_lower:
+            body = self._read_body()
+            try:
+                import urllib.parse
+>>>>>>> 16291ab (Initial project import)
                 email = ""
                 password = ""
                 if self.headers.get("Content-Type", "").startswith("application/json"):
@@ -172,6 +206,7 @@ class CORSHandler(SimpleHTTPRequestHandler):
                     email = data.get("email", [""])[0].strip()
                     password = data.get("password", [""])[0].strip()
 
+<<<<<<< HEAD
                 # Allow empty credentials → fallback to first user (demo mode)
                 if not email or not password:
                     first = next(iter(USERS.values()), None)
@@ -182,12 +217,43 @@ class CORSHandler(SimpleHTTPRequestHandler):
                 user = _authenticate(email, password)
                 if user:
                     token = _create_session(user)
+=======
+                auth_username = os.environ.get("AUTH_USERNAME", "info@smartiqo.com")
+                auth_password = os.environ.get("AUTH_PASSWORD", "Smartiqo@7772")
+                
+                if not email or not password:
+                    email = auth_username
+                    password = auth_password
+
+                user_role = None
+                user_name = "User"
+                
+                # Check users.json
+                users_path = DIR / "users.json"
+                if users_path.exists():
+                    try:
+                        users = json.loads(users_path.read_text(encoding="utf-8"))
+                        for u in users:
+                            if u.get("email") == email and u.get("password") == password:
+                                user_role = u.get("role", "user")
+                                user_name = u.get("name", "User")
+                                break
+                    except:
+                        pass
+                
+                # Fallback to env
+                if not user_role and email == auth_username and password == auth_password:
+                    user_role = "user"
+
+                if user_role:
+>>>>>>> 16291ab (Initial project import)
                     host = self.headers.get("Host", "localhost:8080")
                     proto = "https" if self.headers.get("X-Forwarded-Proto") == "https" else "http"
                     absolute_url = f"{proto}://{host}/"
 
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
+<<<<<<< HEAD
                     self.send_header("Set-Cookie",
                         f"session_token={token}; Path=/; HttpOnly; SameSite=Lax")
                     self.send_header("Set-Cookie",
@@ -197,6 +263,16 @@ class CORSHandler(SimpleHTTPRequestHandler):
                     self.end_headers()
                     self.wfile.write(json.dumps({"url": absolute_url}).encode("utf-8"))
                     logger.info("User logged in: %s", user["email"])
+=======
+                    self.send_header("Set-Cookie", "session_token=secure_smartiqo_session_token_xyz; Path=/; HttpOnly; SameSite=Lax")
+                    self.send_header("Set-Cookie", "next-auth.session-token=secure_smartiqo_session_token_xyz; Path=/; HttpOnly; SameSite=Lax")
+                    self.send_header("Set-Cookie", "logged_in=yes; Path=/; SameSite=Lax")
+                    self.send_header("Set-Cookie", f"auth_email={email}; Path=/; SameSite=Lax")
+                    self.send_header("Set-Cookie", f"auth_role={user_role}; Path=/; SameSite=Lax")
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"url": absolute_url}).encode("utf-8"))
+>>>>>>> 16291ab (Initial project import)
                 else:
                     self._send_json(401, {"error": "Invalid credentials"})
             except Exception as e:
@@ -204,6 +280,7 @@ class CORSHandler(SimpleHTTPRequestHandler):
                 self._send_json(401, {"error": "Authentication failed"})
             return
 
+<<<<<<< HEAD
         # ── Auth: signout ─────────────────────────────────────────────────────
         if "/api/auth/signout" in path_lower or "/api/auth/logout" in path_lower:
             # Invalidate session
@@ -223,6 +300,17 @@ class CORSHandler(SimpleHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.send_header("Set-Cookie", "session_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax")
             self.send_header("Set-Cookie", "next-auth.session-token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax")
+=======
+        if "/api/auth/signout" in path_lower or "/api/auth/logout" in path_lower:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header(
+                "Set-Cookie", "session_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"
+            )
+            self.send_header(
+                "Set-Cookie", "next-auth.session-token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"
+            )
+>>>>>>> 16291ab (Initial project import)
             self.send_header("Set-Cookie", "logged_in=; Path=/; Max-Age=0; SameSite=Lax")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
@@ -327,6 +415,60 @@ class CORSHandler(SimpleHTTPRequestHandler):
             self.send_error(400, "Bad upload request")
             return
 
+<<<<<<< HEAD
+=======
+        
+        if "config/google-sheet-url" in path_lower and method in ("POST", "PUT"):
+            try:
+                body = self._read_body()
+                data = json.loads(body)
+                cfg_path = DIR / "config.json"
+                cfg = {}
+                if cfg_path.exists():
+                    cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+                cfg["googleSheetUrl"] = data.get("url", "")
+                cfg_path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+                self._send_json(200, {"success": True})
+            except Exception as e:
+                self._send_json(500, {"error": str(e)})
+            return
+
+        if "admin/users" in path_lower and method in ("POST", "PUT"):
+            try:
+                body = self._read_body()
+                data = json.loads(body)
+                users_path = DIR / "users.json"
+                users = []
+                if users_path.exists():
+                    users = json.loads(users_path.read_text(encoding="utf-8"))
+                users.append({
+                    "email": data.get("email"),
+                    "password": data.get("password"),
+                    "role": data.get("role", "user"),
+                    "name": data.get("name", "User")
+                })
+                users_path.write_text(json.dumps(users, indent=2), encoding="utf-8")
+                self._send_json(200, {"success": True})
+            except Exception as e:
+                self._send_json(500, {"error": str(e)})
+            return
+            
+        if "admin/users" in path_lower and method == "DELETE":
+            try:
+                parsed = urllib.parse.urlparse(self.path)
+                query = urllib.parse.parse_qs(parsed.query)
+                email = query.get("email", [""])[0]
+                users_path = DIR / "users.json"
+                if users_path.exists():
+                    users = json.loads(users_path.read_text(encoding="utf-8"))
+                    users = [u for u in users if u.get("email") != email]
+                    users_path.write_text(json.dumps(users, indent=2), encoding="utf-8")
+                self._send_json(200, {"success": True})
+            except Exception as e:
+                self._send_json(500, {"error": str(e)})
+            return
+
+>>>>>>> 16291ab (Initial project import)
         body = self._read_body() if method in ("POST", "PUT", "PATCH") else "{}"
         path = self.path
 
@@ -439,6 +581,7 @@ class CORSHandler(SimpleHTTPRequestHandler):
         self._send_json(200, icons_data)
 
     def do_POST(self):
+<<<<<<< HEAD
         parsed_path = urllib.parse.urlparse(self.path).path
         if parsed_path.rstrip("/") == "/api/cart" or parsed_path.startswith("/api/cart/"):
             self._handle_cart_api("POST")
@@ -482,6 +625,17 @@ class CORSHandler(SimpleHTTPRequestHandler):
         if parsed_path.rstrip("/") in ("/api/user-orders", "/api/my-orders"):
             self._handle_user_orders_api("DELETE")
             return
+=======
+        self.handle_api_method("POST")
+
+    def do_PUT(self):
+        self.handle_api_method("PUT")
+
+    def do_PATCH(self):
+        self.handle_api_method("PATCH")
+
+    def do_DELETE(self):
+>>>>>>> 16291ab (Initial project import)
         path = self.path
         if self.path.startswith("/api/"):
             if "icons/upload" in self.path:
@@ -521,6 +675,7 @@ class CORSHandler(SimpleHTTPRequestHandler):
             self.send_error(501, "Unsupported method")
 
     def _is_authenticated(self):
+<<<<<<< HEAD
         import http.cookies
         cookie = http.cookies.SimpleCookie()
         try:
@@ -825,6 +980,22 @@ class CORSHandler(SimpleHTTPRequestHandler):
 
         self._send_json(200, records)
 
+=======
+        cookie_header = self.headers.get("Cookie", "")
+        import http.cookies
+
+        cookie = http.cookies.SimpleCookie()
+        try:
+            cookie.load(cookie_header)
+        except Exception:
+            pass
+        if "session_token" in cookie:
+            token = cookie["session_token"].value
+            expected_token = "secure_smartiqo_session_token_xyz"
+            return token == expected_token
+        return False
+
+>>>>>>> 16291ab (Initial project import)
     def do_GET(self):
         # Normalize relative/nested asset requests (e.g., /Dashboards/_next/ -> /_next/, /Dashboards/assets/ -> /assets/)
         for prefix in (
@@ -873,7 +1044,13 @@ class CORSHandler(SimpleHTTPRequestHandler):
         is_auth = self._is_authenticated()
 
         if not is_assets and not is_auth_api and not is_api:
+<<<<<<< HEAD
             if is_login_page:
+=======
+            if self.path == '/admin':
+                pass
+            elif is_login_page:
+>>>>>>> 16291ab (Initial project import)
                 if is_auth:
                     self.send_response(302)
                     self.send_header("Location", "/")
@@ -894,6 +1071,7 @@ class CORSHandler(SimpleHTTPRequestHandler):
         if self._serve_next_image():
             return
         if self.path.startswith("/api/"):
+<<<<<<< HEAD
             parsed_path = urllib.parse.urlparse(self.path).path
             if parsed_path.rstrip("/") == "/api/cart" or parsed_path.startswith("/api/cart/"):
                 self._handle_cart_api("GET")
@@ -904,6 +1082,8 @@ class CORSHandler(SimpleHTTPRequestHandler):
             if parsed_path.rstrip("/") == "/api/orders-data":
                 self._handle_orders_data_get()
                 return
+=======
+>>>>>>> 16291ab (Initial project import)
             self._mock_api()
             return
         if self._serve_spa():
@@ -1005,6 +1185,7 @@ class CORSHandler(SimpleHTTPRequestHandler):
             self._send_json(200, {"csrfToken": "smartiqo_secure_csrf_token"})
             return
 
+<<<<<<< HEAD
         if "/api/auth/session" in path_lower:
             user = self._get_current_user()
             if user:
@@ -1018,12 +1199,68 @@ class CORSHandler(SimpleHTTPRequestHandler):
                         "parentUserId": None,
                     },
                     "expires": "2027-12-31T23:59:59.999Z",
+=======
+
+        if "/api/auth/session" in path_lower:
+            is_auth = self._is_authenticated()
+            if is_auth:
+                import http.cookies
+                cookie_header = self.headers.get("Cookie", "")
+                cookie = http.cookies.SimpleCookie()
+                try:
+                    cookie.load(cookie_header)
+                except:
+                    pass
+                auth_email = cookie.get("auth_email").value if "auth_email" in cookie else os.environ.get("AUTH_USERNAME", "info@smartiqo.com")
+                auth_role = cookie.get("auth_role").value if "auth_role" in cookie else "user"
+                
+                session_data = {
+                    "user": {
+                        "id": "user1",
+                        "name": "User",
+                        "email": auth_email,
+                        "role": auth_role,
+                        "isPremium": False,
+                        "parentUserId": None,
+                    },
+                    "expires": "2026-12-31T23:59:59.999Z",
+>>>>>>> 16291ab (Initial project import)
                 }
                 self._send_json(200, session_data)
             else:
                 self._send_json(200, {})
             return
 
+<<<<<<< HEAD
+=======
+
+        if "/api/config/google-sheet-url" in path_lower:
+            try:
+                cfg_path = DIR / "config.json"
+                if cfg_path.exists():
+                    cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+                    self._send_json(200, {"url": cfg.get("googleSheetUrl", "")})
+                else:
+                    self._send_json(200, {"url": ""})
+            except Exception as e:
+                self._send_json(200, {"url": ""})
+            return
+
+        if "/api/admin/users" in path_lower:
+            try:
+                users_path = DIR / "users.json"
+                if users_path.exists():
+                    users = json.loads(users_path.read_text(encoding="utf-8"))
+                    # strip passwords
+                    users_clean = [{"email": u.get("email"), "role": u.get("role"), "name": u.get("name")} for u in users]
+                    self._send_json(200, {"users": users_clean})
+                else:
+                    self._send_json(200, {"users": []})
+            except Exception as e:
+                self._send_json(200, {"users": []})
+            return
+
+>>>>>>> 16291ab (Initial project import)
         if api_path == "api/icons":
             self._serve_dynamic_icons()
             return
@@ -1092,6 +1329,21 @@ class CORSHandler(SimpleHTTPRequestHandler):
         self._send_json(200, {})
 
     def _serve_spa(self):
+<<<<<<< HEAD
+=======
+
+        if self.path == '/admin':
+            admin_path = DIR / 'admin.html'
+            if admin_path.exists():
+                self._send_file(str(admin_path), 'text/html')
+                return True
+            else:
+                self.send_response(302)
+                self.send_header("Location", "/")
+                self.end_headers()
+                return True
+
+>>>>>>> 16291ab (Initial project import)
         translated = self.translate_path(self.path)
         if os.path.isfile(translated):
             return False
