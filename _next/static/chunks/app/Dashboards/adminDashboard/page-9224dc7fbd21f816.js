@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[9366],{},_=>{var e=e=>_(_.s=e);_.O(0,[3265,2897,6909,9727,6654,6874,444,1744,8441,863,7358],()=>e(41744)),_N_E=_.O()}]);
-=======
 (self.webpackChunk_N_E = self.webpackChunk_N_E || []).push([
   [9366],
   {},
@@ -14,5 +11,3 @@
       (_N_E = _.O());
   },
 ]);
-
->>>>>>> 16291ab (Initial project import)

@@ -1,11 +1,4 @@
-<<<<<<< HEAD
-# AGENTS.md — SwitchCraft Static Clone Server
-
-## Overview
-=======
 ﻿# AGENTS.md — SwitchCraft Static Clone Server
->>>>>>> 16291ab (Initial project import)
-
 Static clone of [vdplshop.in](https://vdplshop.in) (Next.js SPA). Serves crawled HTML/JS/CSS with API mocking and SPA routing.
 
 ## Commands
