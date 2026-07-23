@@ -268,21 +268,37 @@ function getImagePreviewDataUrl(itemData) {
     typeof itemData.screenshotDataUrl === "string" &&
     itemData.screenshotDataUrl.startsWith("data:image")
   ) {
+    console.log("[CartSync] Using existing screenshotDataUrl");
     return itemData.screenshotDataUrl;
   }
+
   try {
     const canvas = document.querySelector("canvas");
-    if (canvas) {
+    const bgImg = document.querySelector('img[alt*="Panel"], img[alt*="preview"], .panel-preview img, img.glass-panel-bg');
+    
+    if (canvas && bgImg) {
+      console.log("[CartSync] Found both canvas and background image. Compositing...");
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = canvas.width || bgImg.naturalWidth || 800;
+      tempCanvas.height = canvas.height || bgImg.naturalHeight || 600;
+      const ctx = tempCanvas.getContext("2d");
+      ctx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+      try { ctx.drawImage(bgImg, 0, 0, tempCanvas.width, tempCanvas.height); } catch(e) {}
+      try { ctx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height); } catch(e) {}
+      return tempCanvas.toDataURL("image/png");
+    } else if (canvas) {
+      console.log("[CartSync] Found only canvas, returning toDataURL");
       return canvas.toDataURL("image/png");
+    } else if (bgImg && bgImg.src) {
+      console.log("[CartSync] Found only img tag, returning src:", bgImg.src.substring(0, 50));
+      return bgImg.src;
     }
-  } catch (e) {}
-  try {
-    const img = document.querySelector(
-      'img[alt*="preview"], img[alt*="Panel"], .panel-preview img',
-    );
-    if (img && img.src) return img.src;
-  } catch (e) {}
-  return "";}
+  } catch (e) {
+    console.error("[CartSync] Composite preview failed:", e);
+  }
+  console.log("[CartSync] No preview image found, returning empty");
+  return "";
+}
 
 // ─── Helper to escape PDF string characters ──────────────────────────────────
 function escapePdfText(str) {
@@ -603,6 +619,8 @@ function syncSingleItemToGoogleSheet(design) {
       );
 
       if (idx !== -1) {
+        const existingItem = cartItems[idx];
+        const newScreenshotUrl = getImagePreviewDataUrl(design);
         const updatedItems = [...cartItems];
         updatedItems[idx] = {
           ...updatedItems[idx],
@@ -610,7 +628,7 @@ function syncSingleItemToGoogleSheet(design) {
           dropped: design.droppedItems || [],
           quantity: design.quantity || 1,
           totalPrice: design.totalPrice || 0,
-          screenshotDataUrl: getImagePreviewDataUrl(design),
+          screenshotDataUrl: (newScreenshotUrl && newScreenshotUrl !== "") ? newScreenshotUrl : (existingItem.screenshotDataUrl || ""),
           updatedAt: new Date().toISOString(),
         };
         window.__store.dispatch({
